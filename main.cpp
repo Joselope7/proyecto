@@ -1,16 +1,14 @@
-#include "include/Estudiante.h"
-#include "include/Curso.h"
-#include <iostream>
-using namespace std;
+#include "include/ConexionDB.h"
 
 int main() {
-    Estudiante e("2024001", "Ana Garcia", "Ingenieria", 2024);
-    e.mostrar();
+    ConexionDB db;
 
-    cout << "---" << endl;
-
-    Curso c("CC101", "Programacion I", 4, 30);
-    c.mostrar();
+    if (db.conectar()) {
+        auto res = db.consultar("SELECT * FROM estudiantes");
+        for (auto fila : res) {
+            std::cout << fila[0] << " | " << fila[1] << " | " << fila[2] << std::endl;
+        }
+    }
 
     return 0;
 }

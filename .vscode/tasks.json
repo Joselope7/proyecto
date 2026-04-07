@@ -1,0 +1,27 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "Compilar proyecto completo",
+            "command": "cl.exe",
+            "args": [
+                "/Zi", "/EHsc", "/nologo",
+                "/I", "C:\\Program Files\\MySQL\\MySQL Connector C++ 9.6\\include",
+                "main.cpp",
+                "src\\Estudiante.cpp",
+                "src\\Curso.cpp",
+                "src\\ConexionDB.cpp",
+                "/link",
+                "/LIBPATH:C:\\Program Files\\MySQL\\MySQL Connector C++ 9.6\\lib64\\vs14",
+                "mysqlcppconnx.lib",
+                "/OUT:main.exe"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": ["$msCompile"],
+            "group": { "kind": "build", "isDefault": true }
+        }
+    ]
+}
