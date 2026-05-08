@@ -12,6 +12,8 @@ qt_add_executable(universidad
     ui/mainwindow.h
     ui/mainwindow.ui
     core/persona.h core/persona.cpp
+    core/carrera.h core/carrera.cpp
+
 
 
 )
