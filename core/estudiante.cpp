@@ -1,7 +1,11 @@
 #include "estudiante.h"
-#include "iostream"
+#include <iostream>
+#include <numeric>
 
-Estudiante::Estudiante(string carnet, string nombre, int edad, Carrera* carrera, string fechaIngreso) : Persona(nombre, edad), carnet(carnet), carrera(carrera), fechaIngreso(fechaIngreso) {}
+Estudiante::Estudiante(string carnet, string nombre, int edad,
+                       Carrera* carrera, string fechaIngreso)
+    : Persona(nombre, edad), carnet(carnet),
+    carrera(carrera), fechaIngreso(fechaIngreso) {}
 
 string   Estudiante::getCarnet()       const { return carnet; }
 Carrera* Estudiante::getCarrera()      const { return carrera; }

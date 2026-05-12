@@ -1,6 +1,9 @@
 #ifndef CARRERA_H
 #define CARRERA_H
 
+#include <string>
+using namespace std;
+
 class Carrera
 {
 private:
@@ -8,7 +11,8 @@ private:
     string nombre;
 
 public:
-    Carrera(id,nombre);
+    Carrera(int id,string nombre);
+
     int getId() const;
     string getNombre() const;
 };

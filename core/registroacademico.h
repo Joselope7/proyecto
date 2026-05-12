@@ -1,6 +1,9 @@
 #ifndef REGISTROACADEMICO_H
 #define REGISTROACADEMICO_H
 
+#include <string>
+using namespace std;
+
 class RegistroAcademico
 {
 private:

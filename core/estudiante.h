@@ -4,21 +4,21 @@
 #include "persona.h"
 #include "carrera.h"
 #include "registroacademico.h"
-#include <stack>
+#include <vector>
 using namespace std;
 
-class Estudiante
+class Estudiante : public Persona
 {
 private:
     string carnet;
     Carrera* carrera;
     string fechaIngreso;
-    stack<RegistroAcademico> historial;
+    vector<RegistroAcademico> historial;
 public:
     Estudiante(string carnet, string nombre, int edad, Carrera* carrera, string fechaIngreso);
 
     string getNombre() const;
-    int getEdad() const;
+    string getCarnet()      const;
     Carrera* getCarrera() const;
     string getFechaIngreso() const;
 
