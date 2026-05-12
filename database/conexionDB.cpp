@@ -4,7 +4,12 @@ ConexionDB* ConexionDB::instancia = nullptr;
 
 ConexionDB::ConexionDB() {
     db = QSqlDatabase::addDatabase("QODBC");
-    db.setDatabaseName("DSN=universidad_dsn");
+    db.setDatabaseName("DRIVER={MySQL ODBC 9.7 Unicode Driver};"
+                       "SERVER=localhost;"
+                       "PORT=3306;"
+                       "DATABASE=universidad_db;"
+                       "USER=root;"
+                       "PASSWORD=gazorpazorp;");
 }
 
 ConexionDB* ConexionDB::getInstance() {
