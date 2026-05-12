@@ -15,6 +15,7 @@ qt_add_executable(universidad
     core/carrera.h core/carrera.cpp
     core/registroacademico.h core/registroacademico.cpp
     core/estudiante.h core/estudiante.cpp
+    core/curso.h core/curso.cpp
 
 
 
