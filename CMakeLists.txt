@@ -17,6 +17,7 @@ qt_add_executable(universidad
     core/estudiante.h core/estudiante.cpp
     core/curso.h core/curso.cpp
     core/matricula.h core/matricula.cpp
+    database/conexionDB.h database/conexionDB.cpp
 
 
 
