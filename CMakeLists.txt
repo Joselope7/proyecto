@@ -26,6 +26,7 @@ qt_add_executable(universidad
     structures/avl.h
     structures/tablaHash.h
     structures/grafo.h
+    core/sistemaAcademico.h core/sistemaAcademico.cpp
 
 
 
