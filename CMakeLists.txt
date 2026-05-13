@@ -24,6 +24,8 @@ qt_add_executable(universidad
     structures/listaDoble.h
     structures/bst.h
     structures/avl.h
+    structures/tablaHash.h
+    structures/grafo.h
 
 
 
