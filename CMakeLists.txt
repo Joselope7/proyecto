@@ -19,6 +19,7 @@ qt_add_executable(universidad
     core/matricula.h core/matricula.cpp
     database/conexionDB.h database/conexionDB.cpp
     structures/pila.h
+    structures/cola.h
 
 
 
