@@ -20,6 +20,7 @@ qt_add_executable(universidad
     database/conexionDB.h database/conexionDB.cpp
     structures/pila.h
     structures/cola.h
+    structures/listaSimple.h
 
 
 
