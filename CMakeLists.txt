@@ -21,6 +21,7 @@ qt_add_executable(universidad
     structures/pila.h
     structures/cola.h
     structures/listaSimple.h
+    structures/listaDoble.h
 
 
 
