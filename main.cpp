@@ -1,23 +1,23 @@
+#include "ui/mainwindow.h"
+
 #include <QApplication>
-#include "database/ConexionDB.h"
+#include <QLocale>
+#include <QTranslator>
 
-int main(int argc, char *argv[]) {
-    QApplication app(argc, argv);
+int main(int argc, char *argv[])
+{
+    QApplication a(argc, argv);
 
-    // Probar conexión
-    ConexionDB* db = ConexionDB::getInstance();
-
-    if (db->conectar()) {
-        qDebug() << "Sistema listo";
-
-        // Query de prueba
-        QSqlQuery q = db->ejecutarQuery("SELECT nombre FROM carreras");
-        while (q.next()) {
-            qDebug() << "Carrera:" << q.value(0).toString();
+    QTranslator translator;
+    const QStringList uiLanguages = QLocale::system().uiLanguages();
+    for (const QString &locale : uiLanguages) {
+        const QString baseName = "universidad_" + QLocale(locale).name();
+        if (translator.load(":/i18n/" + baseName)) {
+            a.installTranslator(&translator);
+            break;
         }
-
-        db->desconectar();
     }
-
-    return 0;
+    MainWindow w;
+    w.show();
+    return QCoreApplication::exec();
 }

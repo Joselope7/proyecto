@@ -1,14 +1,615 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QFrame>
+#include <QTableWidget>
+#include <QHeaderView>
+#include <QLineEdit>
+#include <QFormLayout>
+#include <QComboBox>
+#include <QMessageBox>
+#include <QFileDialog>
+#include <QTextStream>
+#include <QFile>
 
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+MainWindow::MainWindow(QWidget* parent)
+    : QMainWindow(parent), ui(new Ui::MainWindow),
+    btnNavActivo(nullptr)
 {
     ui->setupUi(this);
+    qApp->setStyleSheet(R"(
+        QTableWidget {
+            color: black;
+            background-color: white;
+            gridline-color: #e0e0e0;
+        }
+        QTableWidget::item {
+            color: black;
+            padding: 4px;
+        }
+        QHeaderView::section {
+            color: black;
+            background-color: #f5f5f5;
+            font-weight: 500;
+            padding: 6px;
+            border: none;
+            border-bottom: 1px solid #ddd;
+        }
+        QLabel { color: black; }
+        QPushButton {
+            border-style: outset;
+            border-width: 1px;
+            border-radius: 6px;
+            border-color: black;
+            background: transparent;
+            color: black;
+        }
+        QPushButton:checked {
+            background: #EBF3FF;
+            color: #1a6bbf;
+            font-weight: 500;
+        }
+        QPushButton:hover:!checked {
+            background: #f5f5f5;
+        }
+        QLineEdit {
+            border: 2px solid #8f8f91;
+            padding: 2px 8px;
+            background-color: #ffffff;
+            color: #333333;
+        }
+    )");
+    setWindowTitle("Sistema de Gestión Académica Universitaria");
+    setMinimumSize(900, 600);
+
+    // Conectar e inicializar sistema
+    sistema = sistemaAcademico::getInstance();
+    ConexionDB::getInstance()->conectar();
+    sistema->cargarTodo();
+
+    setupSidebar();
+    setupTopbar();
+    mostrarDashboard();
 }
 
-MainWindow::~MainWindow()
-{
+MainWindow::~MainWindow() {
+    ConexionDB::getInstance()->desconectar();
     delete ui;
+}
+
+// ── Sidebar ───────────────────────────────────────────────
+
+void MainWindow::setupSidebar() {
+    QWidget*     sidebar = ui->sidebar;
+    QVBoxLayout* layout  = new QVBoxLayout(sidebar);
+    layout->setContentsMargins(8, 8, 8, 8);
+    layout->setSpacing(2);
+
+    // Logo
+    QLabel* logo = new QLabel("Universidad");
+    logo->setStyleSheet("font-size:15px; font-weight:500; padding:8px 6px 4px;");
+    QLabel* sub  = new QLabel("Sistema académico");
+    sub->setStyleSheet("font-size:11px; color:gray; padding:0 6px 10px;");
+
+    layout->addWidget(logo);
+    layout->addWidget(sub);
+
+    QFrame* sep = new QFrame();
+    sep->setFrameShape(QFrame::HLine);
+    sep->setStyleSheet("color: #ddd;");
+    layout->addWidget(sep);
+    layout->addSpacing(6);
+
+    // Botones de navegación
+    auto crearBtn = [&](const QString& texto, const QString& icono) {
+        QPushButton* btn = new QPushButton(icono + "  " + texto);
+        btn->setCheckable(true);
+        btn->setStyleSheet(R"(
+            QPushButton {
+                text-align: left;
+                padding: 9px 12px;
+                border: none;
+                border-radius: 6px;
+                font-size: 13px;
+                background: transparent;
+                color: black;
+            }
+            QPushButton:checked {
+                background: #EBF3FF;
+                color: #1a6bbf;
+                font-weight: 500;
+            }
+            QPushButton:hover:!checked {
+                background: #f5f5f5;
+            }
+        )");
+        return btn;
+    };
+
+    btnDashboard   = crearBtn("Dashboard",   "⊞");
+    btnEstudiantes = crearBtn("Estudiantes", "👥");
+    btnCursos      = crearBtn("Cursos",      "📚");
+    btnMatricula   = crearBtn("Matrícula",   "📋");
+    btnHistorial   = crearBtn("Historial",   "🕐");
+    btnReportes    = crearBtn("Reportes",    "📊");
+
+    layout->addWidget(btnDashboard);
+    layout->addWidget(btnEstudiantes);
+    layout->addWidget(btnCursos);
+    layout->addWidget(btnMatricula);
+    layout->addWidget(btnHistorial);
+    layout->addWidget(btnReportes);
+    layout->addStretch();
+
+    QLabel* user = new QLabel("Administrador");
+    user->setStyleSheet("font-size:11px; color:gray; padding:6px;");
+    layout->addWidget(user);
+
+    connect(btnDashboard,   &QPushButton::clicked, this, &MainWindow::mostrarDashboard);
+    connect(btnEstudiantes, &QPushButton::clicked, this, &MainWindow::mostrarEstudiantes);
+    connect(btnCursos,      &QPushButton::clicked, this, &MainWindow::mostrarCursos);
+    connect(btnMatricula,   &QPushButton::clicked, this, &MainWindow::mostrarMatricula);
+    connect(btnHistorial,   &QPushButton::clicked, this, &MainWindow::mostrarHistorial);
+    connect(btnReportes,    &QPushButton::clicked, this, &MainWindow::mostrarReportes);
+}
+
+void MainWindow::setNavActivo(QPushButton* boton) {
+    if (btnNavActivo) btnNavActivo->setChecked(false);
+    boton->setChecked(true);
+    btnNavActivo = boton;
+}
+
+void MainWindow::setupTopbar() {}
+
+// ── Dashboard ─────────────────────────────────────────────
+
+void MainWindow::mostrarDashboard() {
+    setNavActivo(btnDashboard);
+
+    QWidget*     page   = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(16);
+
+    QLabel* titulo = new QLabel("Dashboard");
+    titulo->setStyleSheet("font-size:18px; font-weight:500;");
+    layout->addWidget(titulo);
+
+    // Tarjetas de métricas
+    QHBoxLayout* cards = new QHBoxLayout();
+    cards->setSpacing(12);
+
+    int totalEst = 0, totalCursos = 0;
+    sistema->listarEstudiantes([&](Estudiante*){ totalEst++; });
+    sistema->listarCursos([&](Curso*){ totalCursos++; });
+
+    auto crearCard = [&](const QString& label, const QString& valor) {
+        QFrame* card = new QFrame();
+        card->setStyleSheet("background:#f7f7f7; border-radius:8px; padding:4px;");
+        QVBoxLayout* cl = new QVBoxLayout(card);
+        QLabel* lbl = new QLabel(label);
+        lbl->setStyleSheet("font-size:12px; color:gray;");
+        QLabel* val = new QLabel(valor);
+        val->setStyleSheet("font-size:24px; font-weight:500;");
+        cl->addWidget(lbl);
+        cl->addWidget(val);
+        return card;
+    };
+
+    cards->addWidget(crearCard("Estudiantes",     QString::number(totalEst)));
+    cards->addWidget(crearCard("Cursos",          QString::number(totalCursos)));
+    cards->addWidget(crearCard("Matrículas",      "—"));
+    cards->addWidget(crearCard("Lista de espera", "—"));
+    layout->addLayout(cards);
+
+    // Acciones rápidas
+    QLabel* lblAcciones = new QLabel("Acciones rápidas");
+    lblAcciones->setStyleSheet("font-size:13px; font-weight:500;");
+    layout->addWidget(lblAcciones);
+
+    QHBoxLayout* acciones = new QHBoxLayout();
+    auto crearAccion = [&](const QString& texto) {
+        QPushButton* btn = new QPushButton(texto);
+        btn->setStyleSheet("padding: 7px 14px; font-size:13px; border-radius:6px;");
+        return btn;
+    };
+
+    QPushButton* aNuevoEst  = crearAccion("+ Nuevo estudiante");
+    QPushButton* aNuevoCur  = crearAccion("+ Nuevo curso");
+    QPushButton* aMatricula = crearAccion("+ Procesar matrícula");
+
+    connect(aNuevoEst,  &QPushButton::clicked, this, &MainWindow::mostrarEstudiantes);
+    connect(aNuevoCur,  &QPushButton::clicked, this, &MainWindow::mostrarCursos);
+    connect(aMatricula, &QPushButton::clicked, this, &MainWindow::mostrarMatricula);
+
+    acciones->addWidget(aNuevoEst);
+    acciones->addWidget(aNuevoCur);
+    acciones->addWidget(aMatricula);
+    acciones->addStretch();
+    layout->addLayout(acciones);
+    layout->addStretch();
+
+    ui->stackedWidget->addWidget(page);
+    ui->stackedWidget->setCurrentWidget(page);
+}
+
+// ── Estudiantes ───────────────────────────────────────────
+
+void MainWindow::mostrarEstudiantes() {
+    setNavActivo(btnEstudiantes);
+
+    QWidget*     page   = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(12);
+
+    // Header
+    QHBoxLayout* header = new QHBoxLayout();
+    QLabel* titulo = new QLabel("Estudiantes");
+    titulo->setStyleSheet("font-size:18px; font-weight:500;");
+    QPushButton* btnNuevo = new QPushButton("+ Nuevo estudiante");
+    btnNuevo->setStyleSheet("padding:7px 14px; font-size:13px; border-radius:6px;");
+    header->addWidget(titulo);
+    header->addStretch();
+    header->addWidget(btnNuevo);
+    layout->addLayout(header);
+
+    // Tabla
+    QTableWidget* tabla = new QTableWidget();
+    tabla->setColumnCount(5);
+    tabla->setHorizontalHeaderLabels({"Carnet","Nombre","Carrera","Ingreso","Promedio"});
+    tabla->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    tabla->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    tabla->setSelectionBehavior(QAbstractItemView::SelectRows);
+    tabla->setAlternatingRowColors(true);
+    tabla->setStyleSheet("font-size:13px; color: black; background-color: white;");
+
+    int fila = 0;
+    sistema->listarEstudiantes([&](Estudiante* e) {
+        tabla->insertRow(fila);
+        tabla->setItem(fila, 0, new QTableWidgetItem(QString::fromStdString(e->getCarnet())));
+        tabla->setItem(fila, 1, new QTableWidgetItem(QString::fromStdString(e->getNombre())));
+        tabla->setItem(fila, 2, new QTableWidgetItem(QString::fromStdString(e->getCarrera()->getNombre())));
+        tabla->setItem(fila, 3, new QTableWidgetItem(QString::fromStdString(e->getFechaIngreso())));
+        tabla->setItem(fila, 4, new QTableWidgetItem(
+                                    e->getPromedio() > 0 ? QString::number(e->getPromedio(), 'f', 2) : "—"));
+        fila++;
+    });
+
+    layout->addWidget(tabla);
+
+    // Formulario nuevo estudiante
+    QFrame* formFrame = new QFrame();
+    formFrame->setStyleSheet("background:#f7f7f7; border-radius:8px; padding:4px;");
+    formFrame->setVisible(false);
+    QFormLayout* form = new QFormLayout(formFrame);
+    form->setContentsMargins(16,12,16,12);
+
+    QLineEdit* inCarnet = new QLineEdit(); inCarnet->setPlaceholderText("ej. 2025001");
+    QLineEdit* inNombre = new QLineEdit(); inNombre->setPlaceholderText("Nombre completo");
+    QLineEdit* inEdad   = new QLineEdit(); inEdad->setPlaceholderText("ej. 20");
+    QLineEdit* inFecha  = new QLineEdit(); inFecha->setPlaceholderText("YYYY-MM-DD");
+    QComboBox* cbCarrera = new QComboBox();
+    cbCarrera->addItem("Ingeniería en Sistemas", 1);
+    cbCarrera->addItem("Ingeniería Civil",        2);
+    cbCarrera->addItem("Administración de Empresas", 3);
+
+    form->addRow("Carnet:",   inCarnet);
+    form->addRow("Nombre:",   inNombre);
+    form->addRow("Edad:",     inEdad);
+    form->addRow("Carrera:",  cbCarrera);
+    form->addRow("Ingreso:",  inFecha);
+
+    QHBoxLayout* formBtns = new QHBoxLayout();
+    QPushButton* btnGuardar  = new QPushButton("Guardar");
+    QPushButton* btnCancelar = new QPushButton("Cancelar");
+    btnGuardar->setStyleSheet("padding:6px 16px; font-size:13px;");
+    btnCancelar->setStyleSheet("padding:6px 16px; font-size:13px;");
+    formBtns->addStretch();
+    formBtns->addWidget(btnCancelar);
+    formBtns->addWidget(btnGuardar);
+    form->addRow(new QWidget(), new QWidget());
+    layout->addWidget(formFrame);
+
+    QWidget* btnRow = new QWidget();
+    btnRow->setLayout(formBtns);
+    form->addRow(btnRow);
+
+    // Mostrar/ocultar formulario
+    connect(btnNuevo, &QPushButton::clicked, [=](){
+        formFrame->setVisible(true);
+        btnNuevo->setEnabled(false);
+    });
+    connect(btnCancelar, &QPushButton::clicked, [=](){
+        formFrame->setVisible(false);
+        btnNuevo->setEnabled(true);
+    });
+
+    // Guardar estudiante
+    connect(btnGuardar, &QPushButton::clicked, [=](){
+        bool ok = sistema->registrarEstudiante(
+            inCarnet->text().toStdString(),
+            inNombre->text().toStdString(),
+            inEdad->text().toInt(),
+            cbCarrera->currentData().toInt(),
+            inFecha->text().toStdString()
+            );
+        if (ok) {
+            QMessageBox::information(this, "Éxito", "Estudiante registrado correctamente.");
+            mostrarEstudiantes();
+        } else {
+            QMessageBox::warning(this, "Error", "No se pudo registrar. Verifica que el carnet no exista.");
+        }
+    });
+
+    ui->stackedWidget->addWidget(page);
+    ui->stackedWidget->setCurrentWidget(page);
+}
+
+// ── Cursos ────────────────────────────────────────────────
+
+void MainWindow::mostrarCursos() {
+    setNavActivo(btnCursos);
+
+    QWidget*     page   = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(12);
+
+    QHBoxLayout* header = new QHBoxLayout();
+    QLabel* titulo = new QLabel("Cursos");
+    titulo->setStyleSheet("font-size:18px; font-weight:500;");
+    header->addWidget(titulo);
+    header->addStretch();
+    layout->addLayout(header);
+
+    QTableWidget* tabla = new QTableWidget();
+    tabla->setColumnCount(4);
+    tabla->setHorizontalHeaderLabels({"Código","Nombre","Créditos","Cupo disponible"});
+    tabla->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    tabla->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    tabla->setSelectionBehavior(QAbstractItemView::SelectRows);
+    tabla->setAlternatingRowColors(true);
+    tabla->setStyleSheet("font-size:13px; color: black; background-color: white;");
+
+    int fila = 0;
+    sistema->listarCursos([&](Curso* c) {
+        tabla->insertRow(fila);
+        tabla->setItem(fila, 0, new QTableWidgetItem(QString::fromStdString(c->getCodigo())));
+        tabla->setItem(fila, 1, new QTableWidgetItem(QString::fromStdString(c->getNombre())));
+        tabla->setItem(fila, 2, new QTableWidgetItem(QString::number(c->getCreditos())));
+        tabla->setItem(fila, 3, new QTableWidgetItem(
+                                    QString::number(c->getCupoDisponible()) + "/" +
+                                    QString::number(c->getCupoMaximo())));
+        fila++;
+    });
+
+    layout->addWidget(tabla);
+
+    ui->stackedWidget->addWidget(page);
+    ui->stackedWidget->setCurrentWidget(page);
+}
+
+// ── Matrícula ─────────────────────────────────────────────
+
+void MainWindow::mostrarMatricula() {
+    setNavActivo(btnMatricula);
+
+    QWidget*     page   = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(16);
+
+    QLabel* titulo = new QLabel("Procesar matrícula");
+    titulo->setStyleSheet("font-size:18px; font-weight:500;");
+    layout->addWidget(titulo);
+
+    QFrame* formFrame = new QFrame();
+    formFrame->setStyleSheet("background:#f7f7f7; border-radius:8px;");
+    formFrame->setMaximumWidth(480);
+    QFormLayout* form = new QFormLayout(formFrame);
+    form->setContentsMargins(20, 16, 20, 16);
+    form->setSpacing(10);
+
+    QLineEdit* inCarnet = new QLineEdit(); inCarnet->setPlaceholderText("ej. 2024001");
+    QLineEdit* inCurso  = new QLineEdit(); inCurso->setPlaceholderText("ej. PRG101");
+    QLineEdit* inCiclo  = new QLineEdit(); inCiclo->setPlaceholderText("ej. 2025-1");
+
+    form->addRow("Carnet estudiante:", inCarnet);
+    form->addRow("Código curso:",      inCurso);
+    form->addRow("Ciclo:",             inCiclo);
+
+    QPushButton* btnProcesar = new QPushButton("Procesar matrícula");
+    btnProcesar->setStyleSheet("padding:8px 20px; font-size:13px; margin-top:8px;");
+    form->addRow(btnProcesar);
+    layout->addWidget(formFrame);
+
+    QLabel* lblResultado = new QLabel("");
+    lblResultado->setStyleSheet("font-size:13px; padding:8px;");
+    layout->addWidget(lblResultado);
+    layout->addStretch();
+
+    connect(btnProcesar, &QPushButton::clicked, [=](){
+        string carnet = inCarnet->text().toStdString();
+        string curso  = inCurso->text().toStdString();
+        string ciclo  = inCiclo->text().toStdString();
+
+        if (carnet.empty() || curso.empty() || ciclo.empty()) {
+            lblResultado->setStyleSheet("color:red; font-size:13px;");
+            lblResultado->setText("⚠ Completa todos los campos.");
+            return;
+        }
+
+        bool ok = sistema->procesarMatricula(carnet, curso, ciclo);
+        if (ok) {
+            lblResultado->setStyleSheet("color:green; font-size:13px;");
+            lblResultado->setText("✓ Matrícula procesada correctamente.");
+            inCarnet->clear(); inCurso->clear(); inCiclo->clear();
+        } else {
+            lblResultado->setStyleSheet("color:red; font-size:13px;");
+            lblResultado->setText("✗ No se pudo procesar. Verifica prerrequisitos o datos.");
+        }
+    });
+
+    ui->stackedWidget->addWidget(page);
+    ui->stackedWidget->setCurrentWidget(page);
+}
+
+// ── Historial ─────────────────────────────────────────────
+
+void MainWindow::mostrarHistorial() {
+    setNavActivo(btnHistorial);
+
+    QWidget*     page   = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(12);
+
+    QLabel* titulo = new QLabel("Historial académico");
+    titulo->setStyleSheet("font-size:18px; font-weight:500;");
+    layout->addWidget(titulo);
+
+    QHBoxLayout* busqLayout = new QHBoxLayout();
+    QLineEdit* inCarnet = new QLineEdit();
+    inCarnet->setPlaceholderText("Ingresa el carnet del estudiante");
+    inCarnet->setMaximumWidth(280);
+    QPushButton* btnBuscar = new QPushButton("Consultar");
+    btnBuscar->setStyleSheet("padding:7px 16px; font-size:13px;");
+    busqLayout->addWidget(inCarnet);
+    busqLayout->addWidget(btnBuscar);
+    busqLayout->addStretch();
+    layout->addLayout(busqLayout);
+
+    QTableWidget* tabla = new QTableWidget();
+    tabla->setColumnCount(5);
+    tabla->setHorizontalHeaderLabels({"Curso","Nombre","Nota","Estado","Ciclo"});
+    tabla->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    tabla->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    tabla->setAlternatingRowColors(true);
+    tabla->setStyleSheet("font-size:13px; color: black; background-color: white;");
+    layout->addWidget(tabla);
+
+    connect(btnBuscar, &QPushButton::clicked, [=](){
+        tabla->setRowCount(0);
+        string carnet = inCarnet->text().toStdString();
+        Estudiante* e = sistema->buscarEstudiante(carnet);
+        if (!e) {
+            QMessageBox::warning(this, "No encontrado", "Estudiante no encontrado.");
+            return;
+        }
+        sistema->cargarHistorialDB(e);
+
+        QSqlQuery q(ConexionDB::getInstance()->getDB());
+        q.prepare("SELECT codigo_curso, nota, estado, ciclo, fecha "
+                  "FROM historial_academico WHERE carnet_estudiante = ? "
+                  "ORDER BY fecha DESC");
+        q.addBindValue(QString::fromStdString(carnet));
+        q.exec();
+        int fila = 0;
+        while (q.next()) {
+            tabla->insertRow(fila);
+            string codigo = q.value(0).toString().toStdString();
+            Curso* c = sistema->buscarCurso(codigo);
+            tabla->setItem(fila, 0, new QTableWidgetItem(QString::fromStdString(codigo)));
+            tabla->setItem(fila, 1, new QTableWidgetItem(
+                                        c ? QString::fromStdString(c->getNombre()) : "—"));
+            tabla->setItem(fila, 2, new QTableWidgetItem(
+                                        QString::number(q.value(1).toDouble(), 'f', 2)));
+            tabla->setItem(fila, 3, new QTableWidgetItem(q.value(2).toString()));
+            tabla->setItem(fila, 4, new QTableWidgetItem(q.value(3).toString()));
+            fila++;
+        }
+    });
+
+    ui->stackedWidget->addWidget(page);
+    ui->stackedWidget->setCurrentWidget(page);
+}
+
+// ── Reportes ──────────────────────────────────────────────
+
+void MainWindow::mostrarReportes() {
+    setNavActivo(btnReportes);
+
+    QWidget*     page   = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(16);
+
+    QLabel* titulo = new QLabel("Reportes");
+    titulo->setStyleSheet("font-size:18px; font-weight:500;");
+    layout->addWidget(titulo);
+
+    auto crearCard = [&](const QString& nombre, const QString& desc,
+                         std::function<void()> exportar) {
+        QFrame* card = new QFrame();
+        card->setStyleSheet("background:#f7f7f7; border-radius:8px;");
+        QVBoxLayout* cl = new QVBoxLayout(card);
+        cl->setContentsMargins(16,14,16,14);
+        QLabel* lNombre = new QLabel(nombre);
+        lNombre->setStyleSheet("font-size:14px; font-weight:500;");
+        QLabel* lDesc = new QLabel(desc);
+        lDesc->setStyleSheet("font-size:12px; color:gray;");
+        QPushButton* btn = new QPushButton("Exportar CSV");
+        btn->setStyleSheet("padding:6px 14px; font-size:12px; margin-top:6px;");
+        btn->setMaximumWidth(140);
+        connect(btn, &QPushButton::clicked, exportar);
+        cl->addWidget(lNombre);
+        cl->addWidget(lDesc);
+        cl->addWidget(btn);
+        return card;
+    };
+
+    // Reporte 1: estudiantes por curso
+    layout->addWidget(crearCard(
+        "Estudiantes por curso",
+        "Lista de estudiantes inscritos en cada curso",
+        [=](){
+            QString path = QFileDialog::getSaveFileName(
+                this, "Guardar reporte", "estudiantes_por_curso.csv", "CSV (*.csv)");
+            if (path.isEmpty()) return;
+            QFile file(path);
+            if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
+            QTextStream out(&file);
+            out << "Curso,Código,Carnet,Nombre\n";
+            sistema->listarCursos([&](Curso* c){
+                sistema->estudiantesPorCurso(c->getCodigo(), [&](Estudiante* e){
+                    out << QString::fromStdString(c->getNombre()) << ","
+                        << QString::fromStdString(c->getCodigo()) << ","
+                        << QString::fromStdString(e->getCarnet()) << ","
+                        << QString::fromStdString(e->getNombre()) << "\n";
+                });
+            });
+            file.close();
+            QMessageBox::information(this, "Éxito", "Reporte exportado correctamente.");
+        }
+        ));
+
+    // Reporte 2: cursos por demanda
+    layout->addWidget(crearCard(
+        "Cursos por demanda",
+        "Ranking de cursos con más inscripciones",
+        [=](){
+            QString path = QFileDialog::getSaveFileName(
+                this, "Guardar reporte", "cursos_por_demanda.csv", "CSV (*.csv)");
+            if (path.isEmpty()) return;
+            QFile file(path);
+            if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
+            QTextStream out(&file);
+            out << "Código,Nombre,Créditos,Total inscritos\n";
+            sistema->cursosPorDemanda([&](Curso* c, int total){
+                out << QString::fromStdString(c->getCodigo()) << ","
+                    << QString::fromStdString(c->getNombre()) << ","
+                    << c->getCreditos() << ","
+                    << total << "\n";
+            });
+            file.close();
+            QMessageBox::information(this, "Éxito", "Reporte exportado correctamente.");
+        }
+        ));
+
+    layout->addStretch();
+
+    ui->stackedWidget->addWidget(page);
+    ui->stackedWidget->setCurrentWidget(page);
 }

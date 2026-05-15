@@ -17,8 +17,7 @@ private:
 public:
     Estudiante(string carnet, string nombre, int edad, Carrera* carrera, string fechaIngreso);
 
-    string getNombre() const;
-    string getCarnet()      const;
+    string getCarnet() const;
     Carrera* getCarrera() const;
     string getFechaIngreso() const;
 

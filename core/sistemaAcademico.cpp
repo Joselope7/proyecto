@@ -300,6 +300,28 @@ bool sistemaAcademico::registrarNota(const string& carnet,
     return true;
 }
 
+void sistemaAcademico::cargarHistorialDB(Estudiante* estudiante) {
+    if (!estudiante) return;
+
+    QSqlQuery q(db->getDB());
+    q.prepare("SELECT codigo_curso, nota, estado, ciclo, fecha "
+              "FROM historial_academico "
+              "WHERE carnet_estudiante = ? ORDER BY fecha DESC");
+    q.addBindValue(QString::fromStdString(estudiante->getCarnet()));
+    q.exec();
+
+    while (q.next()) {
+        string codigo = q.value(0).toString().toStdString();
+        float  nota   = q.value(1).toFloat();
+        string ciclo  = q.value(3).toString().toStdString();
+        string fecha  = q.value(4).toString().toStdString();
+        Curso* c = buscarCurso(codigo);
+        string nombre = c ? c->getNombre() : codigo;
+        RegistroAcademico r(codigo, nombre, nota, ciclo, fecha);
+        estudiante->agregarRegistro(r);
+    }
+}
+
 // ── Reportes ──────────────────────────────────────────────
 
 void sistemaAcademico::estudiantesPorCurso(const string& codigoCurso,
