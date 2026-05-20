@@ -16,7 +16,7 @@ sistemaAcademico::~sistemaAcademico() {
     for (auto m : matriculas) delete m;
 }
 
-// ── Carreras ──────────────────────────────────────────────
+// -- Carreras ----------------------------------------------
 
 void sistemaAcademico::cargarCarrerasDB() {
     QSqlQuery q = db->ejecutarQuery("SELECT id, nombre FROM carreras");
@@ -34,7 +34,7 @@ Carrera* sistemaAcademico::buscarCarrera(int id) {
     return nullptr;
 }
 
-// ── Estudiantes ───────────────────────────────────────────
+// -- Estudiantes -------------------------------------------
 
 bool sistemaAcademico::registrarEstudiante(const string& carnet,
                                            const string& nombre,
@@ -61,6 +61,7 @@ bool sistemaAcademico::registrarEstudiante(const string& carnet,
     listaEstudiantes.insertar(e);
     bstEstudiantes.insertar(e, carnet);
     hashEstudiantes.insertar(carnet, e);
+    arbolIndice.insertar(carnet);
 
     return true;
 }
@@ -109,7 +110,7 @@ void sistemaAcademico::listarEstudiantes(function<void(Estudiante*)> accion) {
     listaEstudiantes.recorrer([&](Estudiante* e){ accion(e); });
 }
 
-// ── Cursos ────────────────────────────────────────────────
+// -- Cursos ------------------------------------------------
 
 bool sistemaAcademico::registrarCurso(const string& codigo,
                                       const string& nombre,
@@ -172,7 +173,7 @@ void sistemaAcademico::listarCursos(function<void(Curso*)> accion) {
     listaCursos.recorrerAdelante([&](Curso* c){ accion(c); });
 }
 
-// ── Prerrequisitos ────────────────────────────────────────
+// -- Prerrequisitos ----------------------------------------
 
 void sistemaAcademico::cargarPrerrequisitosDB() {
     QSqlQuery q = db->ejecutarQuery(
@@ -203,7 +204,7 @@ bool sistemaAcademico::cumplePrerrequisitos(const string& carnet,
     return grafoPrerrequisitos.cumplePrerrequisitos(codigoCurso, aprobados);
 }
 
-// ── Matrícula ─────────────────────────────────────────────
+// -- Matrícula ---------------------------------------------
 
 bool sistemaAcademico::procesarMatricula(const string& carnet,
                                          const string& codigoCurso,
@@ -268,7 +269,7 @@ void sistemaAcademico::cargarMatriculasDB() {
     }
 }
 
-// ── Historial ─────────────────────────────────────────────
+// -- Historial ---------------------------------------------
 
 bool sistemaAcademico::registrarNota(const string& carnet,
                                      const string& codigoCurso,
@@ -295,8 +296,16 @@ bool sistemaAcademico::registrarNota(const string& carnet,
     RegistroAcademico r(codigoCurso, c->getNombre(), nota, ciclo, fecha);
     e->agregarRegistro(r);
 
-    // Actualizar AVL de promedios
-    avlPromedios.insertar(e, e->getPromedio());
+    // Recalcular promedio con el arbol de expresiones
+    vector<float> notas;
+    QSqlQuery qNotas(db->getDB());
+    qNotas.prepare("SELECT nota FROM historial_academico WHERE carnet_estudiante = ?");
+    qNotas.addBindValue(QString::fromStdString(carnet));
+    qNotas.exec();
+    while (qNotas.next()) notas.push_back(qNotas.value(0).toFloat());
+
+    float promedio = arbolPromedio.calcularPromedio(notas);
+    avlPromedios.insertar(e, promedio);
     return true;
 }
 
@@ -322,7 +331,7 @@ void sistemaAcademico::cargarHistorialDB(Estudiante* estudiante) {
     }
 }
 
-// ── Reportes ──────────────────────────────────────────────
+// -- Reportes ----------------------------------------------
 
 void sistemaAcademico::estudiantesPorCurso(const string& codigoCurso,
                                            function<void(Estudiante*)> accion) {
@@ -347,7 +356,7 @@ void sistemaAcademico::cursosPorDemanda(function<void(Curso*, int)> accion) {
     });
 }
 
-// ── Inicialización ────────────────────────────────────────
+// -- Inicialización ----------------------------------------
 
 void sistemaAcademico::cargarTodo() {
     cargarCarrerasDB();
@@ -355,4 +364,13 @@ void sistemaAcademico::cargarTodo() {
     cargarPrerrequisitosDB();
     cargarEstudiantesDB();
     cargarMatriculasDB();
+    inicializarAulas();
+}
+
+void sistemaAcademico::inicializarAulas() {
+    simuladorAulas.agregarAula(1, "Aula A101", 30);
+    simuladorAulas.agregarAula(2, "Aula A102", 25);
+    simuladorAulas.agregarAula(3, "Aula B201", 40);
+    simuladorAulas.agregarAula(4, "Aula B202", 20);
+    simuladorAulas.agregarAula(5, "Aula C301", 35);
 }

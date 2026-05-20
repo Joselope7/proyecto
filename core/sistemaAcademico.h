@@ -13,6 +13,9 @@
 #include "../structures/tablaHash.h"
 #include "../structures/cola.h"
 #include "../structures/grafo.h"
+#include "../structures/ArbolExpresiones.h"
+#include "../structures/ArbolB.h"
+#include "../structures/SimuladorMemoria.h"
 #include "../database/conexionDB.h"
 #include <unordered_set>
 #include <vector>
@@ -31,6 +34,9 @@ private:
     TablaHash<Estudiante*, string> hashEstudiantes;
     Cola<Estudiante*>         colaMatricula;
     Grafo                     grafoPrerrequisitos;
+    ArbolExpresiones arbolPromedio;
+    ArbolB           arbolIndice;
+    SimuladorMemoria simuladorAulas;
 
     vector<Carrera*>   carreras;
     vector<Matricula*> matriculas;
@@ -46,11 +52,11 @@ public:
     static sistemaAcademico* getInstance();
     ~sistemaAcademico();
 
-    // ── Carreras ──────────────────────────────
+    // -- Carreras ------------------------------
     void        cargarCarrerasDB();
     Carrera*    buscarCarrera(int id);
 
-    // ── Estudiantes ───────────────────────────
+    // -- Estudiantes ---------------------------
     bool        registrarEstudiante(const string& carnet, const string& nombre,
                              int edad, int idCarrera,
                              const string& fechaIngreso);
@@ -59,7 +65,7 @@ public:
     void        cargarEstudiantesDB();
     void        listarEstudiantes(function<void(Estudiante*)> accion);
 
-    // ── Cursos ────────────────────────────────
+    // -- Cursos --------------------------------
     bool   registrarCurso(const string& codigo, const string& nombre,
                         int creditos, int cupo);
     bool   eliminarCurso(const string& codigo);
@@ -67,28 +73,34 @@ public:
     void   cargarCursosDB();
     void   listarCursos(function<void(Curso*)> accion);
 
-    // ── Prerrequisitos ────────────────────────
+    // -- Prerrequisitos ------------------------
     void cargarPrerrequisitosDB();
     bool cumplePrerrequisitos(const string& carnet, const string& codigoCurso);
 
-    // ── Matrícula ─────────────────────────────
+    // -- Matrícula -----------------------------
     bool procesarMatricula(const string& carnet, const string& codigoCurso,
                            const string& ciclo);
     bool cancelarMatricula(int idMatricula);
     void cargarMatriculasDB();
 
-    // ── Historial ─────────────────────────────
+    // -- Historial -----------------------------
     bool registrarNota(const string& carnet, const string& codigoCurso,
                        float nota, const string& ciclo, const string& fecha);
     void cargarHistorialDB(Estudiante* estudiante);
 
-    // ── Reportes ──────────────────────────────
+    // -- Reportes ------------------------------
     void estudiantesPorCurso(const string& codigoCurso,
                              function<void(Estudiante*)> accion);
     void cursosPorDemanda(function<void(Curso*, int)> accion);
 
-    // ── Inicialización ────────────────────────
+    // -- Aulas -----------------------
+    void inicializarAulas();
+    SimuladorMemoria& getSimuladorAulas() { return simuladorAulas; }
+    ArbolB&           getArbolIndice()    { return arbolIndice; }
+
+    // -- Inicialización ------------------------
     void cargarTodo();
+
 };
 
 #endif // sistemaAcademico_H
