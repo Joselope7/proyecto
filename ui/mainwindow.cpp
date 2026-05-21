@@ -266,6 +266,21 @@ void MainWindow::mostrarEstudiantes() {
     header->addWidget(btnNuevo);
     layout->addLayout(header);
 
+    // Barra de búsqueda
+    QHBoxLayout* busqLayout = new QHBoxLayout();
+    QLineEdit* inBuscar = new QLineEdit();
+    inBuscar->setPlaceholderText("Buscar por carnet...");
+    inBuscar->setMaximumWidth(240);
+    QPushButton* btnBuscar  = new QPushButton("Buscar");
+    QPushButton* btnMostrar = new QPushButton("Mostrar todos");
+    btnBuscar->setStyleSheet("padding:6px 14px; font-size:13px;");
+    btnMostrar->setStyleSheet("padding:6px 14px; font-size:13px;");
+    busqLayout->addWidget(inBuscar);
+    busqLayout->addWidget(btnBuscar);
+    busqLayout->addWidget(btnMostrar);
+    busqLayout->addStretch();
+    layout->addLayout(busqLayout);
+
     // Tabla
     QTableWidget* tabla = new QTableWidget();
     tabla->setColumnCount(5);
@@ -274,43 +289,77 @@ void MainWindow::mostrarEstudiantes() {
     tabla->setEditTriggers(QAbstractItemView::NoEditTriggers);
     tabla->setSelectionBehavior(QAbstractItemView::SelectRows);
     tabla->setAlternatingRowColors(true);
-    tabla->setStyleSheet("font-size:13px; color: black; background-color: white;");
+    tabla->setStyleSheet("font-size:13px; color:black; background-color:white;");
 
-    int fila = 0;
-    sistema->listarEstudiantes([&](Estudiante* e) {
-        tabla->insertRow(fila);
-        tabla->setItem(fila, 0, new QTableWidgetItem(QString::fromStdString(e->getCarnet())));
-        tabla->setItem(fila, 1, new QTableWidgetItem(QString::fromStdString(e->getNombre())));
-        tabla->setItem(fila, 2, new QTableWidgetItem(QString::fromStdString(e->getCarrera()->getNombre())));
-        tabla->setItem(fila, 3, new QTableWidgetItem(QString::fromStdString(e->getFechaIngreso())));
-        tabla->setItem(fila, 4, new QTableWidgetItem(
-                                    e->getPromedio() > 0 ? QString::number(e->getPromedio(), 'f', 2) : "—"));
-        fila++;
+    auto cargarTabla = [=](Estudiante* filtro = nullptr) {
+        tabla->setRowCount(0);
+        int fila = 0;
+        auto llenarFila = [&](Estudiante* e) {
+            tabla->insertRow(fila);
+            tabla->setItem(fila, 0, new QTableWidgetItem(
+                                        QString::fromStdString(e->getCarnet())));
+            tabla->setItem(fila, 1, new QTableWidgetItem(
+                                        QString::fromStdString(e->getNombre())));
+            tabla->setItem(fila, 2, new QTableWidgetItem(
+                                        QString::fromStdString(e->getCarrera()->getNombre())));
+            tabla->setItem(fila, 3, new QTableWidgetItem(
+                                        QString::fromStdString(e->getFechaIngreso())));
+            tabla->setItem(fila, 4, new QTableWidgetItem(
+                                        e->getPromedio() > 0
+                                            ? QString::number(e->getPromedio(), 'f', 2) : "—"));
+            fila++;
+        };
+
+        if (filtro) {
+            llenarFila(filtro);
+        } else {
+            sistema->listarEstudiantes([&](Estudiante* e){ llenarFila(e); });
+        }
+    };
+
+    cargarTabla();
+    layout->addWidget(tabla);
+
+    // Búsqueda por carnet usando TablaHash
+    connect(btnBuscar, &QPushButton::clicked, [=](){
+        string carnet = inBuscar->text().toStdString();
+        if (carnet.empty()) return;
+        Estudiante* e = sistema->buscarEstudiante(carnet);
+        if (e) {
+            cargarTabla(e);
+        } else {
+            QMessageBox::warning(this, "No encontrado",
+                                 "No se encontró ningún estudiante con ese carnet.");
+        }
     });
 
-    layout->addWidget(tabla);
+    connect(btnMostrar, &QPushButton::clicked, [=](){ cargarTabla(); });
 
     // Formulario nuevo estudiante
     QFrame* formFrame = new QFrame();
-    formFrame->setStyleSheet("background:#f7f7f7; border-radius:8px; padding:4px;");
+    formFrame->setStyleSheet("background:#f7f7f7; border-radius:8px;");
     formFrame->setVisible(false);
     QFormLayout* form = new QFormLayout(formFrame);
-    form->setContentsMargins(16,12,16,12);
+    form->setContentsMargins(16, 12, 16, 12);
+    form->setSpacing(8);
 
-    QLineEdit* inCarnet = new QLineEdit(); inCarnet->setPlaceholderText("ej. 2026001");
+    QLineEdit* inCarnet = new QLineEdit(); inCarnet->setPlaceholderText("ej. 2025001");
     QLineEdit* inNombre = new QLineEdit(); inNombre->setPlaceholderText("Nombre completo");
     QLineEdit* inEdad   = new QLineEdit(); inEdad->setPlaceholderText("ej. 20");
     QLineEdit* inFecha  = new QLineEdit(); inFecha->setPlaceholderText("YYYY-MM-DD");
     QComboBox* cbCarrera = new QComboBox();
-    cbCarrera->addItem("Ingeniería en Sistemas", 1);
-    cbCarrera->addItem("Ingeniería Civil",        2);
-    cbCarrera->addItem("Administración de Empresas", 3);
 
-    form->addRow("Carnet:",   inCarnet);
-    form->addRow("Nombre:",   inNombre);
-    form->addRow("Edad:",     inEdad);
-    form->addRow("Carrera:",  cbCarrera);
-    form->addRow("Ingreso:",  inFecha);
+    // Cargar carreras desde BD
+    QSqlQuery qCar(ConexionDB::getInstance()->getDB());
+    qCar.exec("SELECT id, nombre FROM carreras ORDER BY nombre");
+    while (qCar.next())
+        cbCarrera->addItem(qCar.value(1).toString(), qCar.value(0).toInt());
+
+    form->addRow("Carnet:",  inCarnet);
+    form->addRow("Nombre:",  inNombre);
+    form->addRow("Edad:",    inEdad);
+    form->addRow("Carrera:", cbCarrera);
+    form->addRow("Ingreso:", inFecha);
 
     QHBoxLayout* formBtns = new QHBoxLayout();
     QPushButton* btnGuardar  = new QPushButton("Guardar");
@@ -320,14 +369,12 @@ void MainWindow::mostrarEstudiantes() {
     formBtns->addStretch();
     formBtns->addWidget(btnCancelar);
     formBtns->addWidget(btnGuardar);
-    form->addRow(new QWidget(), new QWidget());
-    layout->addWidget(formFrame);
 
     QWidget* btnRow = new QWidget();
     btnRow->setLayout(formBtns);
     form->addRow(btnRow);
+    layout->addWidget(formFrame);
 
-    // Mostrar/ocultar formulario
     connect(btnNuevo, &QPushButton::clicked, [=](){
         formFrame->setVisible(true);
         btnNuevo->setEnabled(false);
@@ -336,8 +383,6 @@ void MainWindow::mostrarEstudiantes() {
         formFrame->setVisible(false);
         btnNuevo->setEnabled(true);
     });
-
-    // Guardar estudiante
     connect(btnGuardar, &QPushButton::clicked, [=](){
         bool ok = sistema->registrarEstudiante(
             inCarnet->text().toStdString(),
@@ -347,10 +392,11 @@ void MainWindow::mostrarEstudiantes() {
             inFecha->text().toStdString()
             );
         if (ok) {
-            QMessageBox::information(this, "Éxito", "Estudiante registrado correctamente.");
+            QMessageBox::information(this, "Éxito", "Estudiante registrado.");
             mostrarEstudiantes();
         } else {
-            QMessageBox::warning(this, "Error", "No se pudo registrar. Verifica que el carnet no exista.");
+            QMessageBox::warning(this, "Error",
+                                 "No se pudo registrar. Verifica que el carnet no exista.");
         }
     });
 
