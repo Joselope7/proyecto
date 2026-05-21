@@ -25,6 +25,7 @@ private slots:
     void mostrarMatricula();
     void mostrarHistorial();
     void mostrarReportes();
+    void mostrarNotas();
 
 private:
     Ui::MainWindow* ui;

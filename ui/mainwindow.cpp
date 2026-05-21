@@ -93,7 +93,7 @@ MainWindow::~MainWindow() {
     delete ui;
 }
 
-// ── Sidebar ───────────────────────────────────────────────
+// -- Sidebar -----------------------------------------------
 
 void MainWindow::setupSidebar() {
     QWidget*     sidebar = ui->sidebar;
@@ -177,7 +177,7 @@ void MainWindow::setNavActivo(QPushButton* boton) {
 
 void MainWindow::setupTopbar() {}
 
-// ── Dashboard ─────────────────────────────────────────────
+// -- Dashboard ---------------------------------------------
 
 void MainWindow::mostrarDashboard() {
     setNavActivo(btnDashboard);
@@ -249,7 +249,7 @@ void MainWindow::mostrarDashboard() {
     ui->stackedWidget->setCurrentWidget(page);
 }
 
-// ── Estudiantes ───────────────────────────────────────────
+// -- Estudiantes -------------------------------------------
 
 void MainWindow::mostrarEstudiantes() {
     setNavActivo(btnEstudiantes);
@@ -408,7 +408,7 @@ void MainWindow::mostrarEstudiantes() {
     ui->stackedWidget->setCurrentWidget(page);
 }
 
-// ── Cursos ────────────────────────────────────────────────
+// -- Cursos ------------------------------------------------
 
 void MainWindow::mostrarCursos() {
     setNavActivo(btnCursos);
@@ -516,7 +516,7 @@ void MainWindow::mostrarCursos() {
     ui->stackedWidget->setCurrentWidget(page);
 }
 
-// ── Matrícula ─────────────────────────────────────────────
+// -- Matrícula ---------------------------------------------
 
 void MainWindow::mostrarMatricula() {
     setNavActivo(btnMatricula);
@@ -581,91 +581,13 @@ void MainWindow::mostrarMatricula() {
     ui->stackedWidget->setCurrentWidget(page);
 }
 
-// ── Historial ─────────────────────────────────────────────
+// -- Historial ---------------------------------------------
 
 void MainWindow::mostrarHistorial() {
-    setNavActivo(btnHistorial);
-
-    QWidget*     page   = new QWidget();
-    QVBoxLayout* layout = new QVBoxLayout(page);
-    layout->setContentsMargins(20, 20, 20, 20);
-    layout->setSpacing(12);
-
-    QLabel* titulo = new QLabel("Historial académico");
-    titulo->setStyleSheet("font-size:18px; font-weight:500;");
-    layout->addWidget(titulo);
-
-    QHBoxLayout* busqLayout = new QHBoxLayout();
-    QLineEdit* inCarnet = new QLineEdit();
-    inCarnet->setPlaceholderText("Ingresa el carnet del estudiante");
-    inCarnet->setMaximumWidth(280);
-    QPushButton* btnBuscar = new QPushButton("Consultar");
-    btnBuscar->setStyleSheet("padding:7px 16px; font-size:13px;");
-    busqLayout->addWidget(inCarnet);
-    busqLayout->addWidget(btnBuscar);
-    busqLayout->addStretch();
-    layout->addLayout(busqLayout);
-
-    QTableWidget* tabla = new QTableWidget();
-    tabla->setColumnCount(5);
-    tabla->setHorizontalHeaderLabels({"Curso","Nombre","Nota","Estado","Ciclo"});
-    tabla->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    tabla->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    tabla->setAlternatingRowColors(true);
-    tabla->setStyleSheet("font-size:13px; color: black; background-color: white;");
-    layout->addWidget(tabla);
-
-    connect(btnBuscar, &QPushButton::clicked, [=](){
-        tabla->setRowCount(0);
-        string carnet = inCarnet->text().toStdString();
-
-        if (carnet.empty()) {
-            QMessageBox::warning(this, "Error", "Ingresa un carnet.");
-            return;
-        }
-
-        Estudiante* e = sistema->buscarEstudiante(carnet);
-        if (!e) {
-            QMessageBox::warning(this, "No encontrado", "Estudiante no encontrado.");
-            return;
-        }
-
-        // Consultar directo a BD sin pasar por cargarHistorialDB
-        QSqlQuery q(ConexionDB::getInstance()->getDB());
-        q.prepare("SELECT h.codigo_curso, c.nombre, h.nota, h.estado, h.ciclo, h.fecha "
-                  "FROM historial_academico h "
-                  "LEFT JOIN cursos c ON h.codigo_curso = c.codigo "
-                  "WHERE h.carnet_estudiante = ? "
-                  "ORDER BY h.fecha DESC");
-        q.addBindValue(QString::fromStdString(carnet));
-
-        if (!q.exec()) {
-            QMessageBox::warning(this, "Error", "Error al consultar historial.");
-            return;
-        }
-
-        int fila = 0;
-        while (q.next()) {
-            tabla->insertRow(fila);
-            tabla->setItem(fila, 0, new QTableWidgetItem(q.value(0).toString()));
-            tabla->setItem(fila, 1, new QTableWidgetItem(q.value(1).toString()));
-            tabla->setItem(fila, 2, new QTableWidgetItem(
-                                        QString::number(q.value(2).toDouble(), 'f', 2)));
-            tabla->setItem(fila, 3, new QTableWidgetItem(q.value(3).toString()));
-            tabla->setItem(fila, 4, new QTableWidgetItem(q.value(4).toString()));
-            fila++;
-        }
-
-        if (fila == 0)
-            QMessageBox::information(this, "Sin registros",
-                                     "Este estudiante no tiene historial académico aún.");
-    });
-
-    ui->stackedWidget->addWidget(page);
-    ui->stackedWidget->setCurrentWidget(page);
+    mostrarNotas();
 }
 
-// ── Reportes ──────────────────────────────────────────────
+// -- Reportes ----------------------------------------------
 
 void MainWindow::mostrarReportes() {
     setNavActivo(btnReportes);
@@ -750,6 +672,168 @@ void MainWindow::mostrarReportes() {
         ));
 
     layout->addStretch();
+
+    ui->stackedWidget->addWidget(page);
+    ui->stackedWidget->setCurrentWidget(page);
+}
+
+//-- Notas ----------------------------------------------
+
+void MainWindow::mostrarNotas() {
+    setNavActivo(btnHistorial);
+
+    QWidget*     page   = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(16);
+
+    QLabel* titulo = new QLabel("Historial académico y notas");
+    titulo->setStyleSheet("font-size:18px; font-weight:500;");
+    layout->addWidget(titulo);
+
+    // Búsqueda
+    QHBoxLayout* busqLayout = new QHBoxLayout();
+    QLineEdit* inCarnet = new QLineEdit();
+    inCarnet->setPlaceholderText("Carnet del estudiante");
+    inCarnet->setMaximumWidth(240);
+    QPushButton* btnBuscar = new QPushButton("Consultar");
+    btnBuscar->setStyleSheet("padding:7px 16px; font-size:13px;");
+    busqLayout->addWidget(inCarnet);
+    busqLayout->addWidget(btnBuscar);
+    busqLayout->addStretch();
+    layout->addLayout(busqLayout);
+
+    // Info estudiante
+    QLabel* lblInfo = new QLabel("");
+    lblInfo->setStyleSheet("font-size:13px; color:gray;");
+    layout->addWidget(lblInfo);
+
+    // Tabla historial
+    QTableWidget* tabla = new QTableWidget();
+    tabla->setColumnCount(5);
+    tabla->setHorizontalHeaderLabels({"Código","Curso","Nota","Estado","Ciclo"});
+    tabla->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    tabla->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    tabla->setAlternatingRowColors(true);
+    tabla->setStyleSheet("font-size:13px; color:black; background-color:white;");
+    layout->addWidget(tabla);
+
+    // Formulario agregar nota
+    QFrame* formFrame = new QFrame();
+    formFrame->setStyleSheet("background:#f7f7f7; border-radius:8px;");
+    formFrame->setVisible(false);
+    QFormLayout* form = new QFormLayout(formFrame);
+    form->setContentsMargins(16, 12, 16, 12);
+    form->setSpacing(8);
+
+    QLineEdit* inCurso = new QLineEdit(); inCurso->setPlaceholderText("ej. PRG101");
+    QLineEdit* inNota  = new QLineEdit(); inNota->setPlaceholderText("0 - 100");
+    QLineEdit* inCiclo = new QLineEdit(); inCiclo->setPlaceholderText("ej. 2025-1");
+    QLineEdit* inFecha = new QLineEdit(); inFecha->setPlaceholderText("YYYY-MM-DD");
+
+    form->addRow("Código curso:", inCurso);
+    form->addRow("Nota:",         inNota);
+    form->addRow("Ciclo:",        inCiclo);
+    form->addRow("Fecha:",        inFecha);
+
+    QHBoxLayout* formBtns = new QHBoxLayout();
+    QPushButton* btnGuardar  = new QPushButton("Guardar nota");
+    QPushButton* btnCancelar = new QPushButton("Cancelar");
+    btnGuardar->setStyleSheet("padding:6px 16px; font-size:13px;");
+    btnCancelar->setStyleSheet("padding:6px 16px; font-size:13px;");
+    formBtns->addStretch();
+    formBtns->addWidget(btnCancelar);
+    formBtns->addWidget(btnGuardar);
+    QWidget* btnRow = new QWidget();
+    btnRow->setLayout(formBtns);
+    form->addRow(btnRow);
+    layout->addWidget(formFrame);
+
+    QPushButton* btnAgregarNota = new QPushButton("+ Agregar nota");
+    btnAgregarNota->setStyleSheet("padding:7px 14px; font-size:13px;");
+    btnAgregarNota->setVisible(false);
+    layout->addWidget(btnAgregarNota);
+
+    // Función para recargar tabla
+    auto cargarHistorial = [=]() {
+        tabla->setRowCount(0);
+        string carnet = inCarnet->text().toStdString();
+
+        QSqlQuery q(ConexionDB::getInstance()->getDB());
+        q.prepare("SELECT h.codigo_curso, c.nombre, h.nota, h.estado, h.ciclo "
+                  "FROM historial_academico h "
+                  "LEFT JOIN cursos c ON h.codigo_curso = c.codigo "
+                  "WHERE h.carnet_estudiante = ? ORDER BY h.fecha DESC");
+        q.addBindValue(QString::fromStdString(carnet));
+        q.exec();
+
+        int fila = 0;
+        while (q.next()) {
+            tabla->insertRow(fila);
+            tabla->setItem(fila, 0, new QTableWidgetItem(q.value(0).toString()));
+            tabla->setItem(fila, 1, new QTableWidgetItem(q.value(1).toString()));
+            tabla->setItem(fila, 2, new QTableWidgetItem(
+                                        QString::number(q.value(2).toDouble(), 'f', 2)));
+            QTableWidgetItem* estado = new QTableWidgetItem(q.value(3).toString());
+            estado->setForeground(q.value(3).toString() == "aprobado"
+                                      ? QColor("#1a7a3a") : QColor("#c0392b"));
+            tabla->setItem(fila, 3, estado);
+            tabla->setItem(fila, 4, new QTableWidgetItem(q.value(4).toString()));
+            fila++;
+        }
+
+        // Actualizar promedio en lblInfo
+        Estudiante* e = sistema->buscarEstudiante(carnet);
+        if (e) {
+            float prom = e->getPromedio();
+            lblInfo->setText("Estudiante: " +
+                             QString::fromStdString(e->getNombre()) +
+                             "   |   Promedio: " +
+                             (prom > 0 ? QString::number(prom, 'f', 2) : "Sin notas"));
+        }
+    };
+
+    connect(btnBuscar, &QPushButton::clicked, [=](){
+        string carnet = inCarnet->text().toStdString();
+        if (carnet.empty()) return;
+        Estudiante* e = sistema->buscarEstudiante(carnet);
+        if (!e) {
+            QMessageBox::warning(this, "No encontrado", "Estudiante no encontrado.");
+            return;
+        }
+        cargarHistorial();
+        btnAgregarNota->setVisible(true);
+    });
+
+    connect(btnAgregarNota, &QPushButton::clicked, [=](){
+        formFrame->setVisible(true);
+        btnAgregarNota->setEnabled(false);
+    });
+    connect(btnCancelar, &QPushButton::clicked, [=](){
+        formFrame->setVisible(false);
+        btnAgregarNota->setEnabled(true);
+    });
+    connect(btnGuardar, &QPushButton::clicked, [=](){
+        string carnet = inCarnet->text().toStdString();
+        bool ok = sistema->registrarNota(
+            carnet,
+            inCurso->text().toStdString(),
+            inNota->text().toFloat(),
+            inCiclo->text().toStdString(),
+            inFecha->text().toStdString()
+            );
+        if (ok) {
+            QMessageBox::information(this, "Éxito", "Nota registrada.");
+            inCurso->clear(); inNota->clear();
+            inCiclo->clear(); inFecha->clear();
+            formFrame->setVisible(false);
+            btnAgregarNota->setEnabled(true);
+            cargarHistorial();
+        } else {
+            QMessageBox::warning(this, "Error",
+                                 "No se pudo registrar. Verifica el carnet y código de curso.");
+        }
+    });
 
     ui->stackedWidget->addWidget(page);
     ui->stackedWidget->setCurrentWidget(page);
