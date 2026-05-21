@@ -59,6 +59,17 @@ MainWindow::MainWindow(QWidget* parent)
             background-color: #ffffff;
             color: #333333;
         }
+        QComboBox {
+            border: 2px solid #8f8f91;
+            border-radius: 3px;
+            padding: 2px 8px;
+            color: black;
+        }
+        QComboBox QAbstractItemView {
+            border: 2px solid darkgray;
+            selection-background-color: lightgray;
+            color: black;
+        }
     )");
     setWindowTitle("Sistema de Gestión Académica Universitaria");
     setMinimumSize(900, 600);
