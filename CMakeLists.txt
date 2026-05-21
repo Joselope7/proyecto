@@ -30,6 +30,7 @@ qt_add_executable(universidad
     structures/ArbolExpresiones.h
     structures/ArbolB.h
     structures/SimuladorMemoria.h
+    README.md
 
 
 
