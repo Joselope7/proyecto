@@ -70,6 +70,10 @@ MainWindow::MainWindow(QWidget* parent)
             selection-background-color: lightgray;
             color: black;
         }
+        QMessageBox {
+            background: white;
+            color: black;
+        }
     )");
     setWindowTitle("Sistema de Gestión Académica Universitaria");
     setMinimumSize(900, 600);
@@ -417,8 +421,11 @@ void MainWindow::mostrarCursos() {
     QHBoxLayout* header = new QHBoxLayout();
     QLabel* titulo = new QLabel("Cursos");
     titulo->setStyleSheet("font-size:18px; font-weight:500;");
+    QPushButton* btnNuevo = new QPushButton("+ Nuevo curso");
+    btnNuevo->setStyleSheet("padding:7px 14px; font-size:13px; border-radius:6px;");
     header->addWidget(titulo);
     header->addStretch();
+    header->addWidget(btnNuevo);
     layout->addLayout(header);
 
     QTableWidget* tabla = new QTableWidget();
@@ -428,21 +435,82 @@ void MainWindow::mostrarCursos() {
     tabla->setEditTriggers(QAbstractItemView::NoEditTriggers);
     tabla->setSelectionBehavior(QAbstractItemView::SelectRows);
     tabla->setAlternatingRowColors(true);
-    tabla->setStyleSheet("font-size:13px; color: black; background-color: white;");
+    tabla->setStyleSheet("font-size:13px; color:black; background-color:white;");
 
-    int fila = 0;
-    sistema->listarCursos([&](Curso* c) {
-        tabla->insertRow(fila);
-        tabla->setItem(fila, 0, new QTableWidgetItem(QString::fromStdString(c->getCodigo())));
-        tabla->setItem(fila, 1, new QTableWidgetItem(QString::fromStdString(c->getNombre())));
-        tabla->setItem(fila, 2, new QTableWidgetItem(QString::number(c->getCreditos())));
-        tabla->setItem(fila, 3, new QTableWidgetItem(
-                                    QString::number(c->getCupoDisponible()) + "/" +
-                                    QString::number(c->getCupoMaximo())));
-        fila++;
-    });
-
+    auto cargarTabla = [=]() {
+        tabla->setRowCount(0);
+        int fila = 0;
+        sistema->listarCursos([&](Curso* c) {
+            tabla->insertRow(fila);
+            tabla->setItem(fila, 0, new QTableWidgetItem(
+                                        QString::fromStdString(c->getCodigo())));
+            tabla->setItem(fila, 1, new QTableWidgetItem(
+                                        QString::fromStdString(c->getNombre())));
+            tabla->setItem(fila, 2, new QTableWidgetItem(
+                                        QString::number(c->getCreditos())));
+            tabla->setItem(fila, 3, new QTableWidgetItem(
+                                        QString::number(c->getCupoDisponible()) + "/" +
+                                        QString::number(c->getCupoMaximo())));
+            const_cast<int&>(fila)++;
+        });
+    };
+    cargarTabla();
     layout->addWidget(tabla);
+
+    // Formulario nuevo curso
+    QFrame* formFrame = new QFrame();
+    formFrame->setStyleSheet("background:#f7f7f7; border-radius:8px;");
+    formFrame->setVisible(false);
+    QFormLayout* form = new QFormLayout(formFrame);
+    form->setContentsMargins(16, 12, 16, 12);
+    form->setSpacing(8);
+
+    QLineEdit* inCodigo  = new QLineEdit(); inCodigo->setPlaceholderText("ej. PRG103");
+    QLineEdit* inNombre  = new QLineEdit(); inNombre->setPlaceholderText("Nombre del curso");
+    QLineEdit* inCreditos = new QLineEdit(); inCreditos->setPlaceholderText("ej. 4");
+    QLineEdit* inCupo    = new QLineEdit(); inCupo->setPlaceholderText("ej. 25");
+
+    form->addRow("Código:",   inCodigo);
+    form->addRow("Nombre:",   inNombre);
+    form->addRow("Créditos:", inCreditos);
+    form->addRow("Cupo:",     inCupo);
+
+    QHBoxLayout* formBtns = new QHBoxLayout();
+    QPushButton* btnGuardar  = new QPushButton("Guardar");
+    QPushButton* btnCancelar = new QPushButton("Cancelar");
+    btnGuardar->setStyleSheet("padding:6px 16px; font-size:13px;");
+    btnCancelar->setStyleSheet("padding:6px 16px; font-size:13px;");
+    formBtns->addStretch();
+    formBtns->addWidget(btnCancelar);
+    formBtns->addWidget(btnGuardar);
+    QWidget* btnRow = new QWidget();
+    btnRow->setLayout(formBtns);
+    form->addRow(btnRow);
+    layout->addWidget(formFrame);
+
+    connect(btnNuevo, &QPushButton::clicked, [=](){
+        formFrame->setVisible(true);
+        btnNuevo->setEnabled(false);
+    });
+    connect(btnCancelar, &QPushButton::clicked, [=](){
+        formFrame->setVisible(false);
+        btnNuevo->setEnabled(true);
+    });
+    connect(btnGuardar, &QPushButton::clicked, [=](){
+        bool ok = sistema->registrarCurso(
+            inCodigo->text().toStdString(),
+            inNombre->text().toStdString(),
+            inCreditos->text().toInt(),
+            inCupo->text().toInt()
+            );
+        if (ok) {
+            QMessageBox::information(this, "Éxito", "Curso registrado.");
+            mostrarCursos();
+        } else {
+            QMessageBox::warning(this, "Error",
+                                 "No se pudo registrar. Verifica que el código no exista.");
+        }
+    });
 
     ui->stackedWidget->addWidget(page);
     ui->stackedWidget->setCurrentWidget(page);
