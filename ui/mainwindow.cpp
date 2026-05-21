@@ -596,6 +596,7 @@ void MainWindow::mostrarReportes() {
             QFile file(path);
             if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
             QTextStream out(&file);
+            out.setEncoding(QStringConverter::System);
             out << "Curso,Código,Carnet,Nombre\n";
             sistema->listarCursos([&](Curso* c){
                 sistema->estudiantesPorCurso(c->getCodigo(), [&](Estudiante* e){
@@ -621,6 +622,7 @@ void MainWindow::mostrarReportes() {
             QFile file(path);
             if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
             QTextStream out(&file);
+            out.setEncoding(QStringConverter::System);
             out << "Código,Nombre,Créditos,Total inscritos\n";
             sistema->cursosPorDemanda([&](Curso* c, int total){
                 out << QString::fromStdString(c->getCodigo()) << ","
