@@ -297,7 +297,7 @@ void MainWindow::mostrarEstudiantes() {
     QFormLayout* form = new QFormLayout(formFrame);
     form->setContentsMargins(16,12,16,12);
 
-    QLineEdit* inCarnet = new QLineEdit(); inCarnet->setPlaceholderText("ej. 2025001");
+    QLineEdit* inCarnet = new QLineEdit(); inCarnet->setPlaceholderText("ej. 2026001");
     QLineEdit* inNombre = new QLineEdit(); inNombre->setPlaceholderText("Nombre completo");
     QLineEdit* inEdad   = new QLineEdit(); inEdad->setPlaceholderText("ej. 20");
     QLineEdit* inFecha  = new QLineEdit(); inFecha->setPlaceholderText("YYYY-MM-DD");
@@ -504,33 +504,47 @@ void MainWindow::mostrarHistorial() {
     connect(btnBuscar, &QPushButton::clicked, [=](){
         tabla->setRowCount(0);
         string carnet = inCarnet->text().toStdString();
+
+        if (carnet.empty()) {
+            QMessageBox::warning(this, "Error", "Ingresa un carnet.");
+            return;
+        }
+
         Estudiante* e = sistema->buscarEstudiante(carnet);
         if (!e) {
             QMessageBox::warning(this, "No encontrado", "Estudiante no encontrado.");
             return;
         }
-        sistema->cargarHistorialDB(e);
 
+        // Consultar directo a BD sin pasar por cargarHistorialDB
         QSqlQuery q(ConexionDB::getInstance()->getDB());
-        q.prepare("SELECT codigo_curso, nota, estado, ciclo, fecha "
-                  "FROM historial_academico WHERE carnet_estudiante = ? "
-                  "ORDER BY fecha DESC");
+        q.prepare("SELECT h.codigo_curso, c.nombre, h.nota, h.estado, h.ciclo, h.fecha "
+                  "FROM historial_academico h "
+                  "LEFT JOIN cursos c ON h.codigo_curso = c.codigo "
+                  "WHERE h.carnet_estudiante = ? "
+                  "ORDER BY h.fecha DESC");
         q.addBindValue(QString::fromStdString(carnet));
-        q.exec();
+
+        if (!q.exec()) {
+            QMessageBox::warning(this, "Error", "Error al consultar historial.");
+            return;
+        }
+
         int fila = 0;
         while (q.next()) {
             tabla->insertRow(fila);
-            string codigo = q.value(0).toString().toStdString();
-            Curso* c = sistema->buscarCurso(codigo);
-            tabla->setItem(fila, 0, new QTableWidgetItem(QString::fromStdString(codigo)));
-            tabla->setItem(fila, 1, new QTableWidgetItem(
-                                        c ? QString::fromStdString(c->getNombre()) : "—"));
+            tabla->setItem(fila, 0, new QTableWidgetItem(q.value(0).toString()));
+            tabla->setItem(fila, 1, new QTableWidgetItem(q.value(1).toString()));
             tabla->setItem(fila, 2, new QTableWidgetItem(
-                                        QString::number(q.value(1).toDouble(), 'f', 2)));
-            tabla->setItem(fila, 3, new QTableWidgetItem(q.value(2).toString()));
-            tabla->setItem(fila, 4, new QTableWidgetItem(q.value(3).toString()));
+                                        QString::number(q.value(2).toDouble(), 'f', 2)));
+            tabla->setItem(fila, 3, new QTableWidgetItem(q.value(3).toString()));
+            tabla->setItem(fila, 4, new QTableWidgetItem(q.value(4).toString()));
             fila++;
         }
+
+        if (fila == 0)
+            QMessageBox::information(this, "Sin registros",
+                                     "Este estudiante no tiene historial académico aún.");
     });
 
     ui->stackedWidget->addWidget(page);
