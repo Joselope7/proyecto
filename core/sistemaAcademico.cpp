@@ -248,6 +248,16 @@ bool sistemaAcademico::procesarMatricula(const string& carnet,
     if (estado == "en_espera") m->cancelar(); // marca en espera
     matriculas.push_back(m);
 
+    // Asignar aula usando mejor ajuste
+    int inscritos = 0;
+    QSqlQuery qCount(db->getDB());
+    qCount.prepare("SELECT COUNT(*) FROM matriculas "
+                   "WHERE codigo_curso = ? AND estado = 'activa'");
+    qCount.addBindValue(QString::fromStdString(codigoCurso));
+    qCount.exec();
+    if (qCount.next()) inscritos = qCount.value(0).toInt();
+    asignarAula(inscritos);
+
     return true;
 }
 
@@ -365,6 +375,36 @@ void sistemaAcademico::cursosPorDemanda(function<void(Curso*, int)> accion) {
     });
 }
 
+void sistemaAcademico::cargarAulasDB() {
+    simuladorAulas = SimuladorMemoria(); // resetear
+    QSqlQuery q = db->ejecutarQuery("SELECT id, nombre, capacidad FROM aulas");
+    while (q.next()) {
+        simuladorAulas.agregarAula(
+            q.value(0).toInt(),
+            q.value(1).toString().toStdString(),
+            q.value(2).toInt()
+            );
+    }
+}
+
+int sistemaAcademico::asignarAula(int estudiantesInscritos) {
+    int idAula = simuladorAulas.mejorAjuste(estudiantesInscritos);
+    if (idAula == -1) return -1;
+
+    // Persistir en BD
+    Aula* a = simuladorAulas.getAula(idAula);
+    if (!a) return -1;
+
+    QSqlQuery q(db->getDB());
+    q.prepare("UPDATE aulas SET ocupado = ?, disponible = ? WHERE id = ?");
+    q.addBindValue(a->ocupado);
+    q.addBindValue(a->disponible ? 1 : 0);
+    q.addBindValue(idAula);
+    q.exec();
+
+    return idAula;
+}
+
 // -- Inicialización ----------------------------------------
 
 void sistemaAcademico::cargarTodo() {
@@ -373,13 +413,5 @@ void sistemaAcademico::cargarTodo() {
     cargarPrerrequisitosDB();
     cargarEstudiantesDB();
     cargarMatriculasDB();
-    inicializarAulas();
-}
-
-void sistemaAcademico::inicializarAulas() {
-    simuladorAulas.agregarAula(1, "Aula A101", 30);
-    simuladorAulas.agregarAula(2, "Aula A102", 25);
-    simuladorAulas.agregarAula(3, "Aula B201", 40);
-    simuladorAulas.agregarAula(4, "Aula B202", 20);
-    simuladorAulas.agregarAula(5, "Aula C301", 35);
+    cargarAulasDB();
 }

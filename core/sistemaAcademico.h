@@ -55,6 +55,7 @@ public:
     // -- Carreras ------------------------------
     void        cargarCarrerasDB();
     Carrera*    buscarCarrera(int id);
+    void agregarCarrera(int id, const string& nombre);
 
     // -- Estudiantes ---------------------------
     bool        registrarEstudiante(const string& carnet, const string& nombre,
@@ -64,9 +65,6 @@ public:
     Estudiante* buscarEstudiante(const string& carnet);
     void        cargarEstudiantesDB();
     void        listarEstudiantes(function<void(Estudiante*)> accion);
-
-    // -- Carreras ------------------------------
-    void agregarCarrera(int id, const string& nombre);
 
     // -- Cursos --------------------------------
     bool   registrarCurso(const string& codigo, const string& nombre,
@@ -98,7 +96,8 @@ public:
     void cursosPorDemanda(function<void(Curso*, int)> accion);
 
     // -- Aulas -----------------------
-    void inicializarAulas();
+    void  cargarAulasDB();
+    int   asignarAula(int estudiantesInscritos);
     SimuladorMemoria& getSimuladorAulas() { return simuladorAulas; }
     ArbolB&           getArbolIndice()    { return arbolIndice; }
 
