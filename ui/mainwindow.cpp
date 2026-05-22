@@ -347,7 +347,7 @@ void MainWindow::mostrarEstudiantes() {
     form->setContentsMargins(16, 12, 16, 12);
     form->setSpacing(8);
 
-    QLineEdit* inCarnet = new QLineEdit(); inCarnet->setPlaceholderText("ej. 2025001");
+    QLineEdit* inCarnet = new QLineEdit(); inCarnet->setPlaceholderText("ej. 2026001");
     QLineEdit* inNombre = new QLineEdit(); inNombre->setPlaceholderText("Nombre completo");
     QLineEdit* inEdad   = new QLineEdit(); inEdad->setPlaceholderText("ej. 20");
     QLineEdit* inFecha  = new QLineEdit(); inFecha->setPlaceholderText("YYYY-MM-DD");
@@ -469,11 +469,13 @@ void MainWindow::mostrarCursos() {
     QLineEdit* inNombre  = new QLineEdit(); inNombre->setPlaceholderText("Nombre del curso");
     QLineEdit* inCreditos = new QLineEdit(); inCreditos->setPlaceholderText("ej. 4");
     QLineEdit* inCupo    = new QLineEdit(); inCupo->setPlaceholderText("ej. 25");
+    QLineEdit* inPrereq = new QLineEdit(); inPrereq->setPlaceholderText("ej. PRG101");
 
     form->addRow("Código:",   inCodigo);
     form->addRow("Nombre:",   inNombre);
     form->addRow("Créditos:", inCreditos);
     form->addRow("Cupo:",     inCupo);
+    form->addRow("Prerrequisitos:", inPrereq);
 
     QHBoxLayout* formBtns = new QHBoxLayout();
     QPushButton* btnGuardar  = new QPushButton("Guardar");
@@ -497,19 +499,53 @@ void MainWindow::mostrarCursos() {
         btnNuevo->setEnabled(true);
     });
     connect(btnGuardar, &QPushButton::clicked, [=](){
-        bool ok = sistema->registrarCurso(
-            inCodigo->text().toStdString(),
-            inNombre->text().toStdString(),
-            inCreditos->text().toInt(),
-            inCupo->text().toInt()
-            );
-        if (ok) {
-            QMessageBox::information(this, "Éxito", "Curso registrado.");
-            mostrarCursos();
-        } else {
+        string codigo   = inCodigo->text().toStdString();
+        string nombre   = inNombre->text().toStdString();
+        int    creditos = inCreditos->text().toInt();
+        int    cupo     = inCupo->text().toInt();
+
+        if (codigo.empty() || nombre.empty() || creditos == 0 || cupo == 0) {
+            QMessageBox::warning(this, "Error", "Completa todos los campos obligatorios.");
+            return;
+        }
+
+        bool ok = sistema->registrarCurso(codigo, nombre, creditos, cupo);
+        if (!ok) {
             QMessageBox::warning(this, "Error",
                                  "No se pudo registrar. Verifica que el código no exista.");
+            return;
         }
+
+        // Registrar prerrequisitos si se ingresaron
+        QString prereqs = inPrereq->text().trimmed();
+        if (!prereqs.isEmpty()) {
+            QStringList lista = prereqs.split(",", Qt::SkipEmptyParts);
+            for (const QString& p : lista) {
+                string prereq = p.trimmed().toStdString();
+                if (prereq.empty()) continue;
+
+                // Verificar que el prerrequisito existe
+                if (!sistema->buscarCurso(prereq)) {
+                    QMessageBox::warning(this, "Advertencia",
+                                         "El prerrequisito '" + QString::fromStdString(prereq) +
+                                             "' no existe y fue omitido.");
+                    continue;
+                }
+
+                // Guardar en BD
+                QSqlQuery q(ConexionDB::getInstance()->getDB());
+                q.prepare("INSERT INTO prerrequisitos VALUES (?, ?)");
+                q.addBindValue(QString::fromStdString(codigo));
+                q.addBindValue(QString::fromStdString(prereq));
+                q.exec();
+
+                // Actualizar grafo en memoria
+                sistema->agregarPrerrequisito(codigo, prereq);
+            }
+        }
+
+        QMessageBox::information(this, "Éxito", "Curso registrado correctamente.");
+        mostrarCursos();
     });
 
     ui->stackedWidget->addWidget(page);
@@ -537,9 +573,9 @@ void MainWindow::mostrarMatricula() {
     form->setContentsMargins(20, 16, 20, 16);
     form->setSpacing(10);
 
-    QLineEdit* inCarnet = new QLineEdit(); inCarnet->setPlaceholderText("ej. 2024001");
+    QLineEdit* inCarnet = new QLineEdit(); inCarnet->setPlaceholderText("ej. 2026001");
     QLineEdit* inCurso  = new QLineEdit(); inCurso->setPlaceholderText("ej. PRG101");
-    QLineEdit* inCiclo  = new QLineEdit(); inCiclo->setPlaceholderText("ej. 2025-1");
+    QLineEdit* inCiclo  = new QLineEdit(); inCiclo->setPlaceholderText("ej. 2026-1");
 
     form->addRow("Carnet estudiante:", inCarnet);
     form->addRow("Código curso:",      inCurso);
@@ -728,7 +764,7 @@ void MainWindow::mostrarNotas() {
 
     QLineEdit* inCurso = new QLineEdit(); inCurso->setPlaceholderText("ej. PRG101");
     QLineEdit* inNota  = new QLineEdit(); inNota->setPlaceholderText("0 - 100");
-    QLineEdit* inCiclo = new QLineEdit(); inCiclo->setPlaceholderText("ej. 2025-1");
+    QLineEdit* inCiclo = new QLineEdit(); inCiclo->setPlaceholderText("ej. 2026-1");
     QLineEdit* inFecha = new QLineEdit(); inFecha->setPlaceholderText("YYYY-MM-DD");
 
     form->addRow("Código curso:", inCurso);

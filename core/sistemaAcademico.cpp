@@ -175,6 +175,11 @@ void sistemaAcademico::listarCursos(function<void(Curso*)> accion) {
 
 // -- Prerrequisitos ----------------------------------------
 
+void sistemaAcademico::agregarPrerrequisito(const string& curso,
+                                            const string& prereq) {
+    grafoPrerrequisitos.agregarArista(curso, prereq);
+}
+
 void sistemaAcademico::cargarPrerrequisitosDB() {
     QSqlQuery q = db->ejecutarQuery(
         "SELECT codigo_curso, codigo_prereq FROM prerrequisitos");

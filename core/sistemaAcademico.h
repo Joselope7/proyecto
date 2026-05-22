@@ -74,6 +74,7 @@ public:
     void   listarCursos(function<void(Curso*)> accion);
 
     // -- Prerrequisitos ------------------------
+    void agregarPrerrequisito(const string& curso, const string& prereq);
     void cargarPrerrequisitosDB();
     bool cumplePrerrequisitos(const string& carnet, const string& codigoCurso);
 
