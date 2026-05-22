@@ -148,9 +148,11 @@ void MainWindow::setupSidebar() {
     btnMatricula   = crearBtn("Matrícula",   "📋");
     btnHistorial   = crearBtn("Historial",   "🕐");
     btnReportes    = crearBtn("Reportes",    "📊");
+    btnCarreras    = crearBtn("Carreras",    "🎓");
 
     layout->addWidget(btnDashboard);
     layout->addWidget(btnEstudiantes);
+    layout->addWidget(btnCarreras);
     layout->addWidget(btnCursos);
     layout->addWidget(btnMatricula);
     layout->addWidget(btnHistorial);
@@ -163,6 +165,7 @@ void MainWindow::setupSidebar() {
 
     connect(btnDashboard,   &QPushButton::clicked, this, &MainWindow::mostrarDashboard);
     connect(btnEstudiantes, &QPushButton::clicked, this, &MainWindow::mostrarEstudiantes);
+    connect(btnCarreras,    &QPushButton::clicked, this, &MainWindow::mostrarCarreras);
     connect(btnCursos,      &QPushButton::clicked, this, &MainWindow::mostrarCursos);
     connect(btnMatricula,   &QPushButton::clicked, this, &MainWindow::mostrarMatricula);
     connect(btnHistorial,   &QPushButton::clicked, this, &MainWindow::mostrarHistorial);
@@ -401,6 +404,108 @@ void MainWindow::mostrarEstudiantes() {
         } else {
             QMessageBox::warning(this, "Error",
                                  "No se pudo registrar. Verifica que el carnet no exista.");
+        }
+    });
+
+    ui->stackedWidget->addWidget(page);
+    ui->stackedWidget->setCurrentWidget(page);
+}
+// -- Carreras ----------------------------------------------
+
+void MainWindow::mostrarCarreras() {
+    setNavActivo(btnCarreras);
+
+    QWidget*     page   = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(12);
+
+    QHBoxLayout* header = new QHBoxLayout();
+    QLabel* titulo = new QLabel("Carreras");
+    titulo->setStyleSheet("font-size:18px; font-weight:500;");
+    QPushButton* btnNuevo = new QPushButton("+ Nueva carrera");
+    btnNuevo->setStyleSheet("padding:7px 14px; font-size:13px; border-radius:6px;");
+    header->addWidget(titulo);
+    header->addStretch();
+    header->addWidget(btnNuevo);
+    layout->addLayout(header);
+
+    QTableWidget* tabla = new QTableWidget();
+    tabla->setColumnCount(2);
+    tabla->setHorizontalHeaderLabels({"ID", "Nombre"});
+    tabla->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    tabla->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    tabla->setAlternatingRowColors(true);
+    tabla->setStyleSheet("font-size:13px; color:black; background-color:white;");
+
+    auto cargarTabla = [=]() {
+        tabla->setRowCount(0);
+        QSqlQuery q = ConexionDB::getInstance()->ejecutarQuery(
+            "SELECT id, nombre FROM carreras ORDER BY nombre");
+        int fila = 0;
+        while (q.next()) {
+            tabla->insertRow(fila);
+            tabla->setItem(fila, 0, new QTableWidgetItem(q.value(0).toString()));
+            tabla->setItem(fila, 1, new QTableWidgetItem(q.value(1).toString()));
+            fila++;
+        }
+    };
+    cargarTabla();
+    layout->addWidget(tabla);
+
+    // Formulario
+    QFrame* formFrame = new QFrame();
+    formFrame->setStyleSheet("background:#f7f7f7; border-radius:8px;");
+    formFrame->setVisible(false);
+    QFormLayout* form = new QFormLayout(formFrame);
+    form->setContentsMargins(16, 12, 16, 12);
+
+    QLineEdit* inNombre = new QLineEdit();
+    inNombre->setPlaceholderText("ej. Ingeniería Industrial");
+    form->addRow("Nombre:", inNombre);
+
+    QHBoxLayout* formBtns = new QHBoxLayout();
+    QPushButton* btnGuardar  = new QPushButton("Guardar");
+    QPushButton* btnCancelar = new QPushButton("Cancelar");
+    btnGuardar->setStyleSheet("padding:6px 16px; font-size:13px;");
+    btnCancelar->setStyleSheet("padding:6px 16px; font-size:13px;");
+    formBtns->addStretch();
+    formBtns->addWidget(btnCancelar);
+    formBtns->addWidget(btnGuardar);
+    QWidget* btnRow = new QWidget();
+    btnRow->setLayout(formBtns);
+    form->addRow(btnRow);
+    layout->addWidget(formFrame);
+
+    connect(btnNuevo, &QPushButton::clicked, [=](){
+        formFrame->setVisible(true);
+        btnNuevo->setEnabled(false);
+    });
+    connect(btnCancelar, &QPushButton::clicked, [=](){
+        formFrame->setVisible(false);
+        btnNuevo->setEnabled(true);
+    });
+    connect(btnGuardar, &QPushButton::clicked, [=](){
+        QString nombre = inNombre->text().trimmed();
+        if (nombre.isEmpty()) {
+            QMessageBox::warning(this, "Error", "Ingresa el nombre de la carrera.");
+            return;
+        }
+
+        QSqlQuery q(ConexionDB::getInstance()->getDB());
+        q.prepare("INSERT INTO carreras (nombre) VALUES (?)");
+        q.addBindValue(nombre);
+        if (q.exec()) {
+            int nuevoId = q.lastInsertId().toInt();
+            // Agregar a la memoria del sistema
+            sistema->agregarCarrera(nuevoId, nombre.toStdString());
+            QMessageBox::information(this, "Éxito", "Carrera registrada.");
+            inNombre->clear();
+            formFrame->setVisible(false);
+            btnNuevo->setEnabled(true);
+            cargarTabla();
+        } else {
+            QMessageBox::warning(this, "Error", "No se pudo registrar la carrera.");
         }
     });
 

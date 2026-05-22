@@ -65,6 +65,9 @@ public:
     void        cargarEstudiantesDB();
     void        listarEstudiantes(function<void(Estudiante*)> accion);
 
+    // -- Carreras ------------------------------
+    void agregarCarrera(int id, const string& nombre);
+
     // -- Cursos --------------------------------
     bool   registrarCurso(const string& codigo, const string& nombre,
                         int creditos, int cupo);

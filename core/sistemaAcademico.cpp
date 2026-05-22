@@ -34,6 +34,10 @@ Carrera* sistemaAcademico::buscarCarrera(int id) {
     return nullptr;
 }
 
+void sistemaAcademico::agregarCarrera(int id, const string& nombre) {
+    carreras.push_back(new Carrera(id, nombre));
+}
+
 // -- Estudiantes -------------------------------------------
 
 bool sistemaAcademico::registrarEstudiante(const string& carnet,

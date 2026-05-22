@@ -26,6 +26,7 @@ private slots:
     void mostrarHistorial();
     void mostrarReportes();
     void mostrarNotas();
+    void mostrarCarreras();
 
 private:
     Ui::MainWindow* ui;
@@ -38,6 +39,7 @@ private:
 
     QPushButton* btnDashboard;
     QPushButton* btnEstudiantes;
+    QPushButton* btnCarreras;
     QPushButton* btnCursos;
     QPushButton* btnMatricula;
     QPushButton* btnHistorial;
