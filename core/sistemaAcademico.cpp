@@ -222,6 +222,19 @@ bool sistemaAcademico::procesarMatricula(const string& carnet,
     Curso*      c = buscarCurso(codigoCurso);
     if (!e || !c) return false;
 
+    // Verificar que no esté ya matriculado en este curso en este ciclo
+    QSqlQuery qDup(db->getDB());
+    qDup.prepare("SELECT COUNT(*) FROM matriculas "
+                 "WHERE carnet_estudiante = ? "
+                 "AND codigo_curso = ? "
+                 "AND ciclo = ? "
+                 "AND estado != 'cancelada'");
+    qDup.addBindValue(QString::fromStdString(carnet));
+    qDup.addBindValue(QString::fromStdString(codigoCurso));
+    qDup.addBindValue(QString::fromStdString(ciclo));
+    qDup.exec();
+    if (qDup.next() && qDup.value(0).toInt() > 0) return false;
+
     // Verificar prerrequisitos
     if (!cumplePrerrequisitos(carnet, codigoCurso)) return false;
 

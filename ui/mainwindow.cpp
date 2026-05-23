@@ -682,56 +682,155 @@ void MainWindow::mostrarMatricula() {
     QWidget*     page   = new QWidget();
     QVBoxLayout* layout = new QVBoxLayout(page);
     layout->setContentsMargins(20, 20, 20, 20);
-    layout->setSpacing(16);
+    layout->setSpacing(12);
 
     QLabel* titulo = new QLabel("Procesar matrícula");
     titulo->setStyleSheet("font-size:18px; font-weight:500;");
     layout->addWidget(titulo);
 
-    QFrame* formFrame = new QFrame();
-    formFrame->setStyleSheet("background:#f7f7f7; border-radius:8px;");
-    formFrame->setMaximumWidth(480);
-    QFormLayout* form = new QFormLayout(formFrame);
-    form->setContentsMargins(20, 16, 20, 16);
-    form->setSpacing(10);
+    // Datos generales
+    QFrame* datosFrame = new QFrame();
+    datosFrame->setStyleSheet("background:#f7f7f7; border-radius:8px;");
+    datosFrame->setMaximumWidth(520);
+    QFormLayout* datosForm = new QFormLayout(datosFrame);
+    datosForm->setContentsMargins(16, 12, 16, 12);
+    datosForm->setSpacing(8);
 
-    QLineEdit* inCarnet = new QLineEdit(); inCarnet->setPlaceholderText("ej. 2026001");
-    QLineEdit* inCurso  = new QLineEdit(); inCurso->setPlaceholderText("ej. PRG101");
-    QLineEdit* inCiclo  = new QLineEdit(); inCiclo->setPlaceholderText("ej. 2026-1");
+    QLineEdit* inCarnet = new QLineEdit(); inCarnet->setPlaceholderText("ej. 2024001");
+    QLineEdit* inCiclo  = new QLineEdit(); inCiclo->setPlaceholderText("ej. 2025-1");
+    datosForm->addRow("Carnet estudiante:", inCarnet);
+    datosForm->addRow("Ciclo:",             inCiclo);
+    layout->addWidget(datosFrame);
 
-    form->addRow("Carnet estudiante:", inCarnet);
-    form->addRow("Código curso:",      inCurso);
-    form->addRow("Ciclo:",             inCiclo);
+    // Lista de cursos a matricular
+    QLabel* lblCursos = new QLabel("Cursos a matricular:");
+    lblCursos->setStyleSheet("font-size:13px; font-weight:500;");
+    layout->addWidget(lblCursos);
 
-    QPushButton* btnProcesar = new QPushButton("Procesar matrícula");
-    btnProcesar->setStyleSheet("padding:8px 20px; font-size:13px; margin-top:8px;");
-    form->addRow(btnProcesar);
-    layout->addWidget(formFrame);
+    QTableWidget* tablaCursos = new QTableWidget();
+    tablaCursos->setColumnCount(2);
+    tablaCursos->setHorizontalHeaderLabels({"Código curso", ""});
+    tablaCursos->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    tablaCursos->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
+    tablaCursos->setColumnWidth(1, 80);
+    tablaCursos->setMaximumHeight(200);
+    tablaCursos->setStyleSheet("font-size:13px; color:black; background-color:white;");
+    layout->addWidget(tablaCursos);
 
-    QLabel* lblResultado = new QLabel("");
-    lblResultado->setStyleSheet("font-size:13px; padding:8px;");
-    layout->addWidget(lblResultado);
-    layout->addStretch();
+    // Agregar curso a la lista
+    QHBoxLayout* addCursoLayout = new QHBoxLayout();
+    QLineEdit* inCurso = new QLineEdit();
+    inCurso->setPlaceholderText("Código del curso a agregar");
+    inCurso->setMaximumWidth(200);
+    QPushButton* btnAgregarCurso = new QPushButton("+ Agregar curso");
+    btnAgregarCurso->setStyleSheet("padding:6px 14px; font-size:13px;");
+    addCursoLayout->addWidget(inCurso);
+    addCursoLayout->addWidget(btnAgregarCurso);
+    addCursoLayout->addStretch();
+    layout->addLayout(addCursoLayout);
 
-    connect(btnProcesar, &QPushButton::clicked, [=](){
-        string carnet = inCarnet->text().toStdString();
-        string curso  = inCurso->text().toStdString();
-        string ciclo  = inCiclo->text().toStdString();
+    // Agregar curso a la tabla
+    connect(btnAgregarCurso, &QPushButton::clicked, [=](){
+        QString codigo = inCurso->text().trimmed().toUpper();
+        if (codigo.isEmpty()) return;
 
-        if (carnet.empty() || curso.empty() || ciclo.empty()) {
-            lblResultado->setStyleSheet("color:red; font-size:13px;");
-            lblResultado->setText("⚠ Completa todos los campos.");
+        // Verificar que el curso existe
+        if (!sistema->buscarCurso(codigo.toStdString())) {
+            QMessageBox::warning(this, "Error",
+                                 "El curso '" + codigo + "' no existe.");
             return;
         }
 
-        bool ok = sistema->procesarMatricula(carnet, curso, ciclo);
-        if (ok) {
-            lblResultado->setStyleSheet("color:green; font-size:13px;");
-            lblResultado->setText("✓ Matrícula procesada correctamente.");
-            inCarnet->clear(); inCurso->clear(); inCiclo->clear();
-        } else {
+        // Verificar que no esté duplicado en la lista
+        for (int i = 0; i < tablaCursos->rowCount(); i++) {
+            if (tablaCursos->item(i, 0)->text() == codigo) {
+                QMessageBox::warning(this, "Duplicado",
+                                     "Ese curso ya está en la lista.");
+                return;
+            }
+        }
+
+        int fila = tablaCursos->rowCount();
+        tablaCursos->insertRow(fila);
+        tablaCursos->setItem(fila, 0, new QTableWidgetItem(codigo));
+
+        QPushButton* btnEliminar = new QPushButton("Quitar");
+        btnEliminar->setStyleSheet("font-size:11px; padding:2px 8px;");
+        connect(btnEliminar, &QPushButton::clicked, [=](){
+            tablaCursos->removeRow(tablaCursos->indexAt(
+                                                  btnEliminar->parentWidget()->pos()).row());
+            // buscar la fila del botón
+            for (int r = 0; r < tablaCursos->rowCount(); r++) {
+                if (tablaCursos->cellWidget(r, 1) == btnEliminar) {
+                    tablaCursos->removeRow(r);
+                    break;
+                }
+            }
+        });
+        tablaCursos->setCellWidget(fila, 1, btnEliminar);
+        inCurso->clear();
+    });
+
+    // Resultado
+    QLabel* lblResultado = new QLabel("");
+    lblResultado->setStyleSheet("font-size:13px; padding:4px;");
+    layout->addWidget(lblResultado);
+
+    // Procesar
+    QPushButton* btnProcesar = new QPushButton("Procesar matrícula");
+    btnProcesar->setStyleSheet("padding:8px 24px; font-size:13px;");
+    btnProcesar->setMaximumWidth(200);
+    layout->addWidget(btnProcesar);
+    layout->addStretch();
+
+    connect(btnProcesar, &QPushButton::clicked, [=](){
+        string carnet = inCarnet->text().trimmed().toStdString();
+        string ciclo  = inCiclo->text().trimmed().toStdString();
+
+        if (carnet.empty() || ciclo.empty()) {
             lblResultado->setStyleSheet("color:red; font-size:13px;");
-            lblResultado->setText("✗ No se pudo procesar. Verifica prerrequisitos o datos.");
+            lblResultado->setText("⚠ Ingresa el carnet y el ciclo.");
+            return;
+        }
+        if (tablaCursos->rowCount() == 0) {
+            lblResultado->setStyleSheet("color:red; font-size:13px;");
+            lblResultado->setText("⚠ Agrega al menos un curso.");
+            return;
+        }
+
+        int exitosos = 0, fallidos = 0;
+        QStringList errores;
+
+        for (int i = 0; i < tablaCursos->rowCount(); i++) {
+            string curso = tablaCursos->item(i, 0)->text().toStdString();
+            bool ok = sistema->procesarMatricula(carnet, curso, ciclo);
+            if (ok) {
+                exitosos++;
+            } else {
+                fallidos++;
+                errores << QString::fromStdString(curso);
+            }
+        }
+
+        QString msg = QString("✓ %1 curso(s) matriculado(s).").arg(exitosos);
+        if (fallidos > 0)
+            msg += QString("\n✗ %1 curso(s) rechazado(s): %2")
+                       .arg(fallidos)
+                       .arg(errores.join(", "));
+
+        if (fallidos == 0) {
+            lblResultado->setStyleSheet("color:green; font-size:13px;");
+        } else if (exitosos == 0) {
+            lblResultado->setStyleSheet("color:red; font-size:13px;");
+        } else {
+            lblResultado->setStyleSheet("color:orange; font-size:13px;");
+        }
+        lblResultado->setText(msg);
+
+        if (exitosos > 0) {
+            inCarnet->clear();
+            inCiclo->clear();
+            tablaCursos->setRowCount(0);
         }
     });
 
