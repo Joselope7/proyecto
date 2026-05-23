@@ -1022,9 +1022,15 @@ void MainWindow::mostrarNotas() {
     layout->addWidget(formFrame);
 
     QPushButton* btnAgregarNota = new QPushButton("+ Agregar nota");
+    QPushButton* btnEliminarUltimo = new QPushButton("Eliminar último registro");
+
     btnAgregarNota->setStyleSheet("padding:7px 14px; font-size:13px;");
+    btnEliminarUltimo->setStyleSheet(
+        "padding:7px 14px; font-size:13px; color:#c0392b;");
     btnAgregarNota->setVisible(false);
+    btnEliminarUltimo->setVisible(false);
     layout->addWidget(btnAgregarNota);
+    layout->addWidget(btnEliminarUltimo);
 
     // Función para recargar tabla
     auto cargarHistorial = [=]() {
@@ -1099,11 +1105,29 @@ void MainWindow::mostrarNotas() {
         }
         cargarHistorial();
         btnAgregarNota->setVisible(true);
+        btnEliminarUltimo->setVisible(true);
     });
 
     connect(btnAgregarNota, &QPushButton::clicked, [=](){
         formFrame->setVisible(true);
         btnAgregarNota->setEnabled(false);
+    });
+    connect(btnEliminarUltimo, &QPushButton::clicked, [=](){
+        string carnet = inCarnet->text().toStdString();
+
+        auto resp = QMessageBox::question(this, "Confirmar",
+                                          "¿Eliminar el ultimo registro del historial?\nEsta accion no se puede deshacer.",
+                                          QMessageBox::Yes | QMessageBox::No);
+
+        if (resp != QMessageBox::Yes) return;
+
+        if (sistema->eliminarUltimoHistorial(carnet)) {
+            QMessageBox::information(this, "Exito", "Ultimo registro eliminado.");
+            cargarHistorial();
+        } else {
+            QMessageBox::warning(this, "Error",
+                                 "No se pudo eliminar. El historial podria estar vacio.");
+        }
     });
     connect(btnCancelar, &QPushButton::clicked, [=](){
         formFrame->setVisible(false);

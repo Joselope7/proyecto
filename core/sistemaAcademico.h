@@ -88,6 +88,7 @@ public:
     // -- Historial -----------------------------
     bool registrarNota(const string& carnet, const string& codigoCurso,
                        float nota, const string& ciclo, const string& fecha);
+    bool eliminarUltimoHistorial(const string& carnet);
     void cargarHistorialDB(Estudiante* estudiante);
 
     // -- Reportes ------------------------------

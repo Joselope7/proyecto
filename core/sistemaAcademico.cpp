@@ -341,6 +341,31 @@ bool sistemaAcademico::registrarNota(const string& carnet,
     return true;
 }
 
+bool sistemaAcademico::eliminarUltimoHistorial(const string& carnet) {
+    // Obtener el id del registro más reciente
+    QSqlQuery q(db->getDB());
+    q.prepare("SELECT id FROM historial_academico "
+              "WHERE carnet_estudiante = ? "
+              "ORDER BY fecha DESC, id DESC LIMIT 1");
+    q.addBindValue(QString::fromStdString(carnet));
+    q.exec();
+
+    if (!q.next()) return false;
+    int id = q.value(0).toInt();
+
+    // Eliminar de BD
+    QSqlQuery qDel(db->getDB());
+    qDel.prepare("DELETE FROM historial_academico WHERE id = ?");
+    qDel.addBindValue(id);
+    if (!qDel.exec()) return false;
+
+    // Eliminar del tope de la pila en memoria
+    Estudiante* e = buscarEstudiante(carnet);
+    if (e) e->eliminarUltimoRegistro();
+
+    return true;
+}
+
 void sistemaAcademico::cargarHistorialDB(Estudiante* estudiante) {
     if (!estudiante) return;
 

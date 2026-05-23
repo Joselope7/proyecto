@@ -22,6 +22,9 @@ public:
     string getFechaIngreso() const;
 
     void agregarRegistro(const RegistroAcademico& r);
+    void eliminarUltimoRegistro() {
+        if (!historial.empty()) historial.pop_back();
+    }
     float getPromedio() const;
     void mostrarHistorial() const;
 
