@@ -194,31 +194,39 @@ void MainWindow::mostrarDashboard() {
     titulo->setStyleSheet("font-size:18px; font-weight:500;");
     layout->addWidget(titulo);
 
-    // Tarjetas de métricas
-    QHBoxLayout* cards = new QHBoxLayout();
-    cards->setSpacing(12);
-
-    int totalEst = 0, totalCursos = 0;
+    // Contar desde BD
+    int totalEst = 0, totalCursos = 0, totalMatriculas = 0, totalEspera = 0;
     sistema->listarEstudiantes([&](Estudiante*){ totalEst++; });
     sistema->listarCursos([&](Curso*){ totalCursos++; });
 
-    auto crearCard = [&](const QString& label, const QString& valor) {
+    QSqlQuery qMat = ConexionDB::getInstance()->ejecutarQuery(
+        "SELECT COUNT(*) FROM matriculas WHERE estado = 'activa'");
+    if (qMat.next()) totalMatriculas = qMat.value(0).toInt();
+
+    QSqlQuery qEsp = ConexionDB::getInstance()->ejecutarQuery(
+        "SELECT COUNT(*) FROM matriculas WHERE estado = 'en_espera'");
+    if (qEsp.next()) totalEspera = qEsp.value(0).toInt();
+
+    QHBoxLayout* cards = new QHBoxLayout();
+    cards->setSpacing(12);
+
+    auto crearCard = [&](const QString& label, const QString& valor, const QString& color) {
         QFrame* card = new QFrame();
         card->setStyleSheet("background:#f7f7f7; border-radius:8px; padding:4px;");
         QVBoxLayout* cl = new QVBoxLayout(card);
         QLabel* lbl = new QLabel(label);
         lbl->setStyleSheet("font-size:12px; color:gray;");
         QLabel* val = new QLabel(valor);
-        val->setStyleSheet("font-size:24px; font-weight:500;");
+        val->setStyleSheet("font-size:24px; font-weight:500; color:" + color + ";");
         cl->addWidget(lbl);
         cl->addWidget(val);
         return card;
     };
 
-    cards->addWidget(crearCard("Estudiantes",     QString::number(totalEst)));
-    cards->addWidget(crearCard("Cursos",          QString::number(totalCursos)));
-    cards->addWidget(crearCard("Matrículas",      "—"));
-    cards->addWidget(crearCard("Lista de espera", "—"));
+    cards->addWidget(crearCard("Estudiantes",     QString::number(totalEst),       "black"));
+    cards->addWidget(crearCard("Cursos",          QString::number(totalCursos),    "black"));
+    cards->addWidget(crearCard("Matrículas",      QString::number(totalMatriculas),"#1a6bbf"));
+    cards->addWidget(crearCard("Lista de espera", QString::number(totalEspera),    "#c0392b"));
     layout->addLayout(cards);
 
     // Acciones rápidas
@@ -229,7 +237,7 @@ void MainWindow::mostrarDashboard() {
     QHBoxLayout* acciones = new QHBoxLayout();
     auto crearAccion = [&](const QString& texto) {
         QPushButton* btn = new QPushButton(texto);
-        btn->setStyleSheet("padding: 7px 14px; font-size:13px; border-radius:6px;");
+        btn->setStyleSheet("padding:7px 14px; font-size:13px; border-radius:6px;");
         return btn;
     };
 
@@ -301,7 +309,18 @@ void MainWindow::mostrarEstudiantes() {
     auto cargarTabla = [=](Estudiante* filtro = nullptr) {
         tabla->setRowCount(0);
         int fila = 0;
+
         auto llenarFila = [&](Estudiante* e) {
+            // Calcular promedio directo desde BD
+            QSqlQuery q(ConexionDB::getInstance()->getDB());
+            q.prepare("SELECT AVG(nota) FROM historial_academico "
+                      "WHERE carnet_estudiante = ?");
+            q.addBindValue(QString::fromStdString(e->getCarnet()));
+            q.exec();
+            QString promedio = "—";
+            if (q.next() && !q.value(0).isNull())
+                promedio = QString::number(q.value(0).toDouble(), 'f', 2);
+
             tabla->insertRow(fila);
             tabla->setItem(fila, 0, new QTableWidgetItem(
                                         QString::fromStdString(e->getCarnet())));
@@ -311,9 +330,7 @@ void MainWindow::mostrarEstudiantes() {
                                         QString::fromStdString(e->getCarrera()->getNombre())));
             tabla->setItem(fila, 3, new QTableWidgetItem(
                                         QString::fromStdString(e->getFechaIngreso())));
-            tabla->setItem(fila, 4, new QTableWidgetItem(
-                                        e->getPromedio() > 0
-                                            ? QString::number(e->getPromedio(), 'f', 2) : "—"));
+            tabla->setItem(fila, 4, new QTableWidgetItem(promedio));
             fila++;
         };
 
@@ -859,6 +876,21 @@ void MainWindow::mostrarNotas() {
     tabla->setStyleSheet("font-size:13px; color:black; background-color:white;");
     layout->addWidget(tabla);
 
+    // Sección cursos matriculados
+    QLabel* lblMatriculas = new QLabel("Cursos matriculados");
+    lblMatriculas->setStyleSheet("font-size:14px; font-weight:500; margin-top:8px;");
+    layout->addWidget(lblMatriculas);
+
+    QTableWidget* tablaMatriculas = new QTableWidget();
+    tablaMatriculas->setColumnCount(4);
+    tablaMatriculas->setHorizontalHeaderLabels({"Código","Curso","Ciclo","Estado"});
+    tablaMatriculas->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    tablaMatriculas->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    tablaMatriculas->setAlternatingRowColors(true);
+    tablaMatriculas->setStyleSheet("font-size:13px; color:black; background-color:white;");
+    tablaMatriculas->setMaximumHeight(180);
+    layout->addWidget(tablaMatriculas);
+
     // Formulario agregar nota
     QFrame* formFrame = new QFrame();
     formFrame->setStyleSheet("background:#f7f7f7; border-radius:8px;");
@@ -931,6 +963,30 @@ void MainWindow::mostrarNotas() {
                              QString::fromStdString(e->getNombre()) +
                              "   |   Promedio: " +
                              (prom > 0 ? QString::number(prom, 'f', 2) : "Sin notas"));
+        }
+
+        // Cargar matrículas activas
+        tablaMatriculas->setRowCount(0);
+        QSqlQuery qMat(ConexionDB::getInstance()->getDB());
+        qMat.prepare("SELECT m.codigo_curso, c.nombre, m.ciclo, m.estado "
+                     "FROM matriculas m "
+                     "LEFT JOIN cursos c ON m.codigo_curso = c.codigo "
+                     "WHERE m.carnet_estudiante = ? "
+                     "ORDER BY m.ciclo DESC");
+        qMat.addBindValue(QString::fromStdString(carnet));
+        qMat.exec();
+
+        int filaMat = 0;
+        while (qMat.next()) {
+            tablaMatriculas->insertRow(filaMat);
+            tablaMatriculas->setItem(filaMat, 0, new QTableWidgetItem(qMat.value(0).toString()));
+            tablaMatriculas->setItem(filaMat, 1, new QTableWidgetItem(qMat.value(1).toString()));
+            tablaMatriculas->setItem(filaMat, 2, new QTableWidgetItem(qMat.value(2).toString()));
+            QTableWidgetItem* est = new QTableWidgetItem(qMat.value(3).toString());
+            est->setForeground(qMat.value(3).toString() == "activa"
+                                   ? QColor("#1a7a3a") : QColor("#c0392b"));
+            tablaMatriculas->setItem(filaMat, 3, est);
+            filaMat++;
         }
     };
 
