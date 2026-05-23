@@ -311,6 +311,17 @@ bool sistemaAcademico::registrarNota(const string& carnet,
     Curso*      c = buscarCurso(codigoCurso);
     if (!e || !c) return false;
 
+    // Verificar que el estudiante está matriculado en el curso
+    QSqlQuery qMat(db->getDB());
+    qMat.prepare("SELECT COUNT(*) FROM matriculas "
+                 "WHERE carnet_estudiante = ? "
+                 "AND codigo_curso = ? "
+                 "AND estado = 'activa'");
+    qMat.addBindValue(QString::fromStdString(carnet));
+    qMat.addBindValue(QString::fromStdString(codigoCurso));
+    qMat.exec();
+    if (!qMat.next() || qMat.value(0).toInt() == 0) return false;
+
     string estado = (nota >= 61.0f) ? "aprobado" : "reprobado";
 
     QSqlQuery q(db->getDB());
@@ -338,6 +349,16 @@ bool sistemaAcademico::registrarNota(const string& carnet,
 
     float promedio = arbolPromedio.calcularPromedio(notas);
     avlPromedios.insertar(e, promedio);
+
+    // Marcar matrícula como completada
+    QSqlQuery qUpdate(db->getDB());
+    qUpdate.prepare("UPDATE matriculas SET estado = 'completada' "
+                    "WHERE carnet_estudiante = ? "
+                    "AND codigo_curso = ?");
+    qUpdate.addBindValue(QString::fromStdString(carnet));
+    qUpdate.addBindValue(QString::fromStdString(codigoCurso));
+    qUpdate.exec();
+
     return true;
 }
 
