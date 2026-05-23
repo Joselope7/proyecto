@@ -492,7 +492,7 @@ void MainWindow::mostrarCarreras() {
     auto cargarTabla = [=]() {
         tabla->setRowCount(0);
         QSqlQuery q = ConexionDB::getInstance()->ejecutarQuery(
-            "SELECT id, nombre FROM carreras ORDER BY nombre");
+            "SELECT id, nombre FROM carreras ORDER BY id ASC");
         int fila = 0;
         while (q.next()) {
             tabla->insertRow(fila);
