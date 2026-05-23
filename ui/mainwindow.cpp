@@ -298,9 +298,12 @@ void MainWindow::mostrarEstudiantes() {
 
     // Tabla
     QTableWidget* tabla = new QTableWidget();
-    tabla->setColumnCount(5);
-    tabla->setHorizontalHeaderLabels({"Carnet","Nombre","Carrera","Ingreso","Promedio"});
+    tabla->setColumnCount(6);
+    tabla->setHorizontalHeaderLabels(
+        {"Carnet","Nombre","Carrera","Ingreso","Promedio",""});
     tabla->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    tabla->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Fixed);
+    tabla->setColumnWidth(5, 90);
     tabla->setEditTriggers(QAbstractItemView::NoEditTriggers);
     tabla->setSelectionBehavior(QAbstractItemView::SelectRows);
     tabla->setAlternatingRowColors(true);
@@ -321,6 +324,36 @@ void MainWindow::mostrarEstudiantes() {
             if (q.next() && !q.value(0).isNull())
                 promedio = QString::number(q.value(0).toDouble(), 'f', 2);
 
+            QPushButton* btnEliminar = new QPushButton("Eliminar");
+            btnEliminar->setStyleSheet(
+                "font-size:11px; padding:3px 8px; color:#c0392b;");
+            connect(btnEliminar, &QPushButton::clicked, [=](){
+                auto resp = QMessageBox::question(this, "Confirmar",
+                                                  "¿Eliminar al estudiante " +
+                                                      QString::fromStdString(e->getCarnet()) + "?\n"
+                                                                                               "Se eliminaran tambien sus matriculas e historial.",
+                                                  QMessageBox::Yes | QMessageBox::No);
+                if (resp != QMessageBox::Yes) return;
+
+                // Eliminar registros relacionados primero
+                QSqlQuery qH(ConexionDB::getInstance()->getDB());
+                qH.prepare("DELETE FROM historial_academico WHERE carnet_estudiante = ?");
+                qH.addBindValue(QString::fromStdString(e->getCarnet()));
+                qH.exec();
+
+                QSqlQuery qM(ConexionDB::getInstance()->getDB());
+                qM.prepare("DELETE FROM matriculas WHERE carnet_estudiante = ?");
+                qM.addBindValue(QString::fromStdString(e->getCarnet()));
+                qM.exec();
+
+                if (sistema->eliminarEstudiante(e->getCarnet())) {
+                    QMessageBox::information(this, "Exito", "Estudiante eliminado.");
+                    mostrarEstudiantes();
+                } else {
+                    QMessageBox::warning(this, "Error", "No se pudo eliminar el estudiante.");
+                }
+            });
+
             tabla->insertRow(fila);
             tabla->setItem(fila, 0, new QTableWidgetItem(
                                         QString::fromStdString(e->getCarnet())));
@@ -331,6 +364,7 @@ void MainWindow::mostrarEstudiantes() {
             tabla->setItem(fila, 3, new QTableWidgetItem(
                                         QString::fromStdString(e->getFechaIngreso())));
             tabla->setItem(fila, 4, new QTableWidgetItem(promedio));
+            tabla->setCellWidget(fila, 5, btnEliminar);
             fila++;
         };
 
